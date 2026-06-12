@@ -4,14 +4,351 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
+      ========================================================================
+      BUILD-VORAUSSETZUNG: JDK 21
+      Der Build MUSS mit einem JDK 21 laufen (z. B. JAVA_HOME auf eine
+      Temurin-21-Installation setzen). Grund: google-java-format (vom
+      fmt-maven-plugin genutzt) greift auf interne javac-APIs zu, die sich in
+      neueren JDKs (z. B. 26) inkompatibel geändert haben -> dort bricht das
+      Format-Plugin. Der erzeugte Bytecode ist über <maven.compiler.release>
+      ohnehin Java-21-kompatibel. Aufruf-Beispiel:
+        JAVA_HOME=/pfad/zu/jdk-21 mvn clean install
+      ========================================================================
+    -->
+
+
+    <!--
+      ========================================================================
+      PROJEKT-KOORDINATEN
+      groupId:artifactId:version identifizieren das Artefakt eindeutig im
+      lokalen/entfernten Repository. packaging=jar ist der Default.
+      ========================================================================
+    -->
     <groupId>com.ruzbyte</groupId>
     <artifactId>speedrunner</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
 
     <properties>
-        <maven.compiler.source>26</maven.compiler.source>
-        <maven.compiler.target>26</maven.compiler.target>
+        <!--
+          Java-Sprachlevel. Wir bauen auf JDK 26 (installiert), erzeugen aber
+          mit "release" gezielt Java-21-kompatiblen Bytecode. <release> setzt
+          source, target UND den korrekten Classpath der Plattform-APIs in
+          einem Schritt – sauberer als source/target getrennt.
+        -->
+        <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- Zentral gepflegte Versionen: ein Ort für Upgrades. -->
+        <log4j2.version>2.24.3</log4j2.version>
+        <gson.version>2.11.0</gson.version>
+        <junit.version>5.11.4</junit.version>
+        <mockito.version>5.14.2</mockito.version>
+
+        <!-- Build-/Quality-Plugin-Versionen. -->
+        <compiler.plugin.version>3.13.0</compiler.plugin.version>
+        <surefire.plugin.version>3.5.2</surefire.plugin.version>
+        <fmt.plugin.version>2.25</fmt.plugin.version>
+        <checkstyle.plugin.version>3.6.0</checkstyle.plugin.version>
+        <checkstyle.tool.version>10.21.1</checkstyle.tool.version>
+        <pmd.plugin.version>3.26.0</pmd.plugin.version>
+        <spotbugs.plugin.version>4.8.6.6</spotbugs.plugin.version>
+        <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
     </properties>
 
+    <dependencies>
+        <!--
+          ====================================================================
+          LOGGING – Log4j2 (API + Core).
+          - log4j-api: das Logger-Interface, gegen das wir programmieren.
+          - log4j-core: die konkrete Implementierung + Konfig-Auswertung
+            (liest src/main/resources/log4j2.xml).
+          Scope ist compile (Default), weil zur Laufzeit benötigt.
+          ====================================================================
+        -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
+
+        <!--
+          JSON – Gson. Nur eingebunden, noch nicht genutzt (kommt später).
+        -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
+        </dependency>
+
+        <!--
+          ====================================================================
+          TESTING – JUnit 5 (Jupiter) via BOM.
+          Die junit-bom legt zentral aufeinander abgestimmte Versionen aller
+          JUnit-Module fest (import-Scope im dependencyManagement). Dadurch
+          müssen wir an den einzelnen JUnit-Deps keine Version mehr angeben.
+          Scope test: nur für Compile/Run der Tests, nicht im finalen JAR.
+          ====================================================================
+        -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+          MOCKITO – Mocking-Framework. Nur eingebunden, noch nicht genutzt.
+          - mockito-core: die eigentliche Mock-Engine.
+          - mockito-junit-jupiter: Integration (z. B. @ExtendWith(MockitoExtension))
+            für JUnit 5.
+        -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- JUnit-BOM: zentrale Versionssteuerung für alle JUnit-Artefakte. -->
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!--
+              ================================================================
+              COMPILER – kompiliert die Quellen mit Java 21 Release-Level.
+              Standardmäßig an Phasen compile / test-compile gebunden.
+              ================================================================
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${compiler.plugin.version}</version>
+            </plugin>
+
+            <!--
+              ================================================================
+              1) GOOGLE JAVA FORMAT – fmt-maven-plugin (Spotify-Fork).
+              Prüft den Code gegen den Google Java Style. Wir binden das Ziel
+              "check" an die frühe Phase "validate": bricht der Code vom Format
+              ab, scheitert der Build SOFORT (kein Auto-Format im Build!).
+              Zum bewussten Formatieren lokal: `mvn fmt:format`.
+              Hinweis: Google-Java-Format braucht auf JDK 16+ JVM-Exports –
+              diese stehen in .mvn/jvm.config.
+              ================================================================
+            -->
+            <plugin>
+                <groupId>com.spotify.fmt</groupId>
+                <artifactId>fmt-maven-plugin</artifactId>
+                <version>${fmt.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>format-check</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+              ================================================================
+              2) CHECKSTYLE – maven-checkstyle-plugin mit google_checks.xml.
+              Statische Stil-/Konventionsprüfung. Gebunden an "validate".
+              - configLocation=google_checks.xml: die mitgelieferte Google-Regel.
+              - violationSeverity=warning: schon WARN-Findings zählen als Fehler.
+              - failOnViolation + failsOnError=true: Build bricht bei Verstößen
+                UND bei Konfig-/Parsing-Fehlern.
+              Wir pinnen die Checkstyle-Tool-Version (nicht nur die Plugin-
+              Version), damit google_checks.xml zur Engine passt.
+              ================================================================
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>${checkstyle.plugin.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>${checkstyle.tool.version}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <configLocation>google_checks.xml</configLocation>
+                    <violationSeverity>warning</violationSeverity>
+                    <failOnViolation>true</failOnViolation>
+                    <failsOnError>true</failsOnError>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>checkstyle-validate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+              ================================================================
+              3) PMD – maven-pmd-plugin mit eigenem Regelsatz.
+              Findet fragwürdige Konstrukte/Code-Smells. Gebunden an "verify".
+              - rulesets=pmd-custom-ruleset.xml: unser eigener (anpassbarer) Satz.
+              - failOnViolation=true: Verstöße brechen den Build.
+              - printFailingErrors: zeigt die konkreten Findings im Log.
+              - targetJdk=21: PMD parst die Quellen als Java 21.
+              ================================================================
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>${pmd.plugin.version}</version>
+                <configuration>
+                    <rulesets>
+                        <ruleset>${project.basedir}/pmd-custom-ruleset.xml</ruleset>
+                    </rulesets>
+                    <failOnViolation>true</failOnViolation>
+                    <printFailingErrors>true</printFailingErrors>
+                    <targetJdk>21</targetJdk>
+                    <includeTests>false</includeTests>
+                    <!-- Kein JXR-Quellcode-Cross-Reference -> unterdrückt die
+                         "Unable to locate Source XRef"-Warnung beim Report. -->
+                    <linkXRef>false</linkXRef>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>pmd-verify</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+              ================================================================
+              4) SPOTBUGS – analysiert den kompilierten Bytecode auf Bug-Muster.
+              Gebunden an "verify".
+              - effort=Max: gründlichste (langsamste) Analyse.
+              - threshold=Low: meldet auch Findings niedriger Confidence -> streng.
+              - failOnError=true: jeder Fund bricht den Build.
+              ================================================================
+            -->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>${spotbugs.plugin.version}</version>
+                <configuration>
+                    <effort>Max</effort>
+                    <threshold>Low</threshold>
+                    <failOnError>true</failOnError>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-verify</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+              ================================================================
+              5) JACOCO – misst Test-Coverage und erzwingt ein Mindestmaß.
+              Drei Ausführungen:
+              - prepare-agent (Phase initialize): hängt den Coverage-Agent an
+                die Test-JVM, damit Surefire die Abdeckung aufzeichnet.
+              - report (Phase test): erzeugt den HTML/XML-Report.
+              - check (Phase verify): GATE – mindestens 70% LINE-Coverage über
+                das Bundle, sonst bricht der Build (haltOnFailure=true).
+              ================================================================
+            -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-check-70-percent</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <haltOnFailure>true</haltOnFailure>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.70</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+              ================================================================
+              SUREFIRE – führt die Unit-Tests (JUnit 5) in der Phase "test" aus.
+              Version 3.x erkennt die JUnit-Platform automatisch. argLine wird
+              von JaCoCo (prepare-agent) gesetzt und hier übernommen.
+              ================================================================
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.plugin.version}</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Log4j2-Basiskonfiguration. Log4j2 sucht diese Datei automatisch im Classpath
+  (src/main/resources landet im Classpath-Root).
+
+  - status="WARN": Log-Level der internen Log4j2-Selbstdiagnose.
+  - Appender "Console": schreibt nach System.out im angegebenen Pattern
+    (Zeit, Thread, Level, Logger-Name, Nachricht).
+  - Root-Logger level="info": Standard-Schwelle für die ganze App; Appender-Ref
+    verbindet ihn mit der Konsole.
+-->
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout
+                pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>

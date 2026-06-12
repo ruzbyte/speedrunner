@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ============================================================================
+  Eigener PMD-Regelsatz für das Projekt "speedrunner".
+
+  Start: die vier PMD-Standard-Kategorien als Ganzes referenziert. Du kannst
+  hier später einzelne Regeln per <exclude name="..."/> abschalten oder eigene
+  Regeln/Properties ergänzen, ohne die pom.xml anzufassen.
+
+  Kategorien (PMD 7):
+  - bestpractices : allgemein anerkannte gute Praktiken (z. B. Logger statt
+                    System.out, keine ungenutzten Variablen).
+  - codestyle     : Stil-/Namens-/Strukturkonventionen.
+  - design        : Design-Smells (zu komplex, zu groß, Kopplung ...).
+  - errorprone    : Konstrukte, die häufig zu echten Bugs führen.
+  ============================================================================
+-->
+<ruleset name="speedrunner-custom"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0
+                             https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>
+        Standard-Kategorien als Ausgangsbasis; projektspezifisch anpassbar.
+    </description>
+
+    <rule ref="category/java/bestpractices.xml"/>
+
+    <!--
+      codestyle komplett, ABER ohne AtLeastOneConstructor: diese Regel
+      widerspricht der ebenfalls in codestyle enthaltenen UnnecessaryConstructor
+      (die einen leeren Default-Konstruktor als überflüssig meldet). Für simple
+      Klassen sind beide nicht gleichzeitig erfüllbar – wir behalten
+      UnnecessaryConstructor und deaktivieren AtLeastOneConstructor.
+    -->
+    <rule ref="category/java/codestyle.xml">
+        <exclude name="AtLeastOneConstructor"/>
+    </rule>
+
+    <!--
+      design komplett, ABER ohne LoosePackageCoupling: diese Regel braucht
+      explizit konfigurierte Pakete/Klassen; ohne diese deaktiviert PMD sie und
+      gibt eine "misconfigured rule"-Warnung aus. Bis wir Paketgrenzen festlegen
+      wollen, bleibt sie deaktiviert (sauberer, warnungsfreier Build).
+    -->
+    <rule ref="category/java/design.xml">
+        <exclude name="LoosePackageCoupling"/>
+    </rule>
+
+    <rule ref="category/java/errorprone.xml"/>
+
+</ruleset>
