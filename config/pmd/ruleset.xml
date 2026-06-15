@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="speedrunner"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0
+                             https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+  <description>
+    PMD rules for speedrunner. PMD targets bad patterns, code smells and real
+    bugs; pure formatting/style is left to Checkstyle (google_checks) and
+    Spotless (google-java-format) to avoid duplicate, conflicting reports.
+  </description>
+
+  <rule ref="category/java/bestpractices.xml">
+    <!-- This is a console application: main() writes to stdout by design. -->
+    <exclude name="SystemPrintln"/>
+  </rule>
+
+  <rule ref="category/java/errorprone.xml">
+    <!-- Reconfigured below to treat 0/0L as non-magic in guard clauses. -->
+    <exclude name="AvoidLiteralsInIfCondition"/>
+  </rule>
+  <rule ref="category/java/errorprone.xml/AvoidLiteralsInIfCondition">
+    <properties>
+      <!-- Comparing against 0 / 0L in a guard clause is idiomatic, not a smell. -->
+      <property name="ignoreMagicNumbers" value="-1,0,0L"/>
+    </properties>
+  </rule>
+
+  <rule ref="category/java/multithreading.xml"/>
+  <rule ref="category/java/performance.xml"/>
+
+</ruleset>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs exclusion filter. Add <Match> entries here to suppress known
+  false positives. Every suppression should be justified with a comment so it
+  can be reviewed and removed once the underlying issue is resolved.
+-->
+<FindBugsFilter>
+  <!-- Example (disabled): ignore a specific false positive.
+  <Match>
+    <Class name="com.ruzbyte.speedrunner.Example"/>
+    <Bug pattern="DM_DEFAULT_ENCODING"/>
+  </Match>
+  -->
+</FindBugsFilter>
