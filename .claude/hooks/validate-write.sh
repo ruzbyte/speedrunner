@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: PostToolUse (Write|Edit)
 # Secret scanning - detects credentials in file writes
 # Non-blocking: warns but does not prevent the write (PostToolUse)

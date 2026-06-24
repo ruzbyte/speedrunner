@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: Stop - session cleanup
 # Removes this session from the registry and cleans up the lock dir.
 #

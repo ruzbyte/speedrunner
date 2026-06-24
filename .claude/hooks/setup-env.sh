@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: SessionStart (startup|resume)
 # Sets project environment variables and prints status
 set -euo pipefail

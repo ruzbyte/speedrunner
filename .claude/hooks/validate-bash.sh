@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: PreToolUse (Bash)
 # Universal safety guard blocking dangerous commands
 # All patterns use POSIX ERE (no \s, \b, \w) for macOS + Linux compatibility

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: SessionStart - inter-session coordination guard
 # Detects concurrent sessions on the same repo, warns about conflicts.
 # Advisory only: warns, never denies.

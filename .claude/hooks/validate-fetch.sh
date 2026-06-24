@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: PreToolUse (WebFetch|WebSearch)
 # Audit logging for external URL access + domain filtering in strict mode
 set -euo pipefail
