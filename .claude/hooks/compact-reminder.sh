@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: SessionStart (compact)
 # Re-injects critical project rules after context compaction.
 # Without this, Claude loses project-specific constraints when the

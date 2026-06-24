@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: PreToolUse (Read)
 # Prevents reading sensitive files that should never be accessed by the agent
 set -euo pipefail

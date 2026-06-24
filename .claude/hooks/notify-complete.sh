@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: Stop | SubagentStop | Notification
 # Dispatches completion notifications to enabled channels
 set -euo pipefail

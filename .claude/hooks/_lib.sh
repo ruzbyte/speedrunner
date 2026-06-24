@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: FSL-1.1-ALv2
 # cognitive-core shared hook library
 # Sourced by all hook scripts for config loading and JSON output helpers

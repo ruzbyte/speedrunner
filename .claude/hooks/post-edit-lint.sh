@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # cognitive-core hook: PostToolUse (Write|Edit)
 # Auto-lints files after edits based on project language config
 # Always exits 0 (non-blocking feedback only)
