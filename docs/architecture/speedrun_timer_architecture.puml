@@ -14,6 +14,7 @@ package ports {
   interface SplitRepository {
     + load(category : String) : PersonalBest
     + save(run : Run) : void
+    + categories() : Set<String>
   }
 
   interface TimerListener {
@@ -47,6 +48,7 @@ package core {
     + resume() : void
     + reset() : void
     + status() : void
+    + elapsed() : Duration
     + compareToPersonalBest() : Duration
     ~ setState(state : TimerState, now : Instant) : void
     + addListener(l : TimerListener) : void

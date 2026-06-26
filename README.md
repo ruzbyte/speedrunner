@@ -27,10 +27,16 @@ core through the same observer interface.
 Requires JDK 21 and Maven.
 
 ```bash
-mvn clean install      # build + run all quality gates
-mvn clean package      # produce the executable JAR
-java -jar target/speedrunner.jar
+mvn clean install                         # build + run all quality gates
+mvn clean package                         # produce the self-contained executable JAR
+cp samples/speedruns.json speedruns.json  # seed a data file you can write to
+java -jar target/speedrunner.jar          # uses ./speedruns.json (pass a path to override)
 ```
+
+Categories (and their segment layout) are seeded in the JSON data file; on
+launch you pick one from the list. A run **auto-finishes** once it reaches the
+seeded number of segments, and finishing **improves that category's personal
+best** in the file. A sample data file lives in [`samples/`](samples/).
 
 ## Commands (CLI)
 
@@ -42,6 +48,7 @@ java -jar target/speedrunner.jar
 | `resume` | resumes a paused run                                |
 | `reset`  | resets the timer                                     |
 | `status` | shows current time, splits, comparison vs. PB       |
+| `quit`   | exits the application (also `exit`)                 |
 
 Illegal transitions (e.g. `split` while idle) are rejected, not silently
 ignored.

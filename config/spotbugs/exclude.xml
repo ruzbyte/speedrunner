@@ -11,4 +11,12 @@
     <Bug pattern="DM_DEFAULT_ENCODING"/>
   </Match>
   -->
+
+  <!-- CliController is wired with its collaborators (the SpeedrunTimer it drives, the input
+       stream, the logger) through constructor injection. Holding those references is the intended
+       design of the adapter, not representation exposure. -->
+  <Match>
+    <Class name="com.ruzbyte.speedrunner.adapters.CliController"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
 </FindBugsFilter>

@@ -325,6 +325,60 @@ class SpeedrunTimerTest {
     assertThrows(NullPointerException.class, () -> timer.addListener(null));
   }
 
+  @Test
+  @DisplayName("elapsed is zero while idle")
+  void elapsedIsZeroWhenIdle() {
+    assertEquals(Duration.ZERO, timer.elapsed());
+  }
+
+  @Test
+  @DisplayName("elapsed tracks the clock while running")
+  void elapsedWhileRunning() {
+    seedLayout(2, Duration.ofSeconds(100L));
+    timer.start();
+    clock.set(at(15L));
+
+    assertEquals(Duration.ofSeconds(15L), timer.elapsed());
+  }
+
+  @Test
+  @DisplayName("elapsed is frozen while paused")
+  void elapsedFrozenWhilePaused() {
+    seedLayout(2, Duration.ofSeconds(100L));
+    timer.start();
+    clock.set(at(10L));
+    timer.pause();
+    clock.set(at(50L));
+
+    assertEquals(Duration.ofSeconds(10L), timer.elapsed());
+  }
+
+  @Test
+  @DisplayName("elapsed excludes paused time after resuming")
+  void elapsedExcludesPauseAfterResume() {
+    seedLayout(2, Duration.ofSeconds(100L));
+    timer.start();
+    clock.set(at(10L));
+    timer.pause();
+    clock.set(at(30L));
+    timer.resume();
+    clock.set(at(50L));
+
+    assertEquals(Duration.ofSeconds(30L), timer.elapsed());
+  }
+
+  @Test
+  @DisplayName("elapsed is the final total once finished")
+  void elapsedIsFinalTotalWhenFinished() {
+    seedLayout(1, Duration.ofSeconds(100L));
+    timer.start();
+    clock.set(at(10L));
+    timer.split();
+    clock.set(at(100L));
+
+    assertEquals(Duration.ofSeconds(10L), timer.elapsed());
+  }
+
   /** A clock whose instant can be advanced explicitly, for deterministic time-based tests. */
   private static final class MutableClock implements Clock {
 
