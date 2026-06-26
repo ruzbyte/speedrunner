@@ -56,7 +56,10 @@ motivated by the domain:
   context (`SpeedrunTimer`) holds the data and passes the timestamp through.
   `entry()`/`exit()` encapsulate transition side effects.
 - **Strategy** — `CompareStrategy` for the comparison modes (PB / Sum of Best /
-  Average), selectable per speedrun category.
+  Average), selectable per speedrun category and applied by `SplitCalculator`.
+  The `status` command loads the `PersonalBest` and runs the active strategy
+  through the core (`SpeedrunTimer.compareToPersonalBest()`) to show the delta
+  vs. PB; the CLI only renders the result.
 - **Repository** — `SplitRepository` port with a JSON adapter; injected via the
   constructor (manual dependency injection from `Main`, no singleton).
 - **Observer** — `TimerListener` as the event interface; the CLI implements it,

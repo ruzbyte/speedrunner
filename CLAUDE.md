@@ -34,6 +34,10 @@ test root `src/test/java`. Four design patterns, each motivated by the domain:
     - The **state** triggers transitions (`ctx.setState(...)`), not the context.
     - `entry()`/`exit()` encapsulate transition side effects (e.g.
       `FinishedState.entry` saves the run via the repository).
+    - States reach the repository and listeners **only through package-private
+      helper methods on the context** (`ctx.save(...)`, `ctx.fireFinish(...)`,
+      etc.). The states hold no dependencies of their own — this is what keeps
+      them stateless and shareable.
     - Illegal transitions throw `IllegalStateException` — never silently ignored.
 - **Strategy** — `CompareStrategy` for comparison modes (`VsPersonalBest`,
   `VsSumOfBest`, `VsAverage`), used by `SplitCalculator`.
@@ -46,14 +50,23 @@ test root `src/test/java`. Four design patterns, each motivated by the domain:
 ## Time Measurement
 
 - Based on `java.time.Instant`, behind a `Clock` port (`now()`).
-- **Store absolute timestamps, do not sum deltas** — prevents drift over long
-  runs.
-- Pauses are subtracted from elapsed time as accumulated pause duration.
+- **Store absolute timestamps, do not sum deltas** — this prevents *accumulation*
+  drift (the rounding error of summing many per-split deltas). It does **not**
+  address *wall-clock-jump* drift from NTP/DST corrections; a monotonic source
+  (`System.nanoTime()`) would be needed for that and is deliberately deferred
+  (see README "Notes").
+- Pauses are subtracted from elapsed time as accumulated pause duration, tracked
+  as a `Duration` on the context (`SpeedrunTimer`), not inside the records.
 - Tests use a fixed test clock, never the real clock.
 ## Domain Objects
 
 `Split`, `Run`, `PersonalBest` as **records** (immutable). Validation in the
 compact constructor (e.g. no empty category name).
+
+The in-progress run is **accumulated in the context** (`SpeedrunTimer` holds a
+mutable split list, the start `Instant`, and the accumulated pause `Duration`);
+the immutable `Run` record is constructed **once** in `FinishedState.entry` and
+handed to the repository. Records are never mutated.
 
 ## Code Standards
 
