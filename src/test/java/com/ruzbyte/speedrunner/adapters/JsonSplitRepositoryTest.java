@@ -43,7 +43,8 @@ class JsonSplitRepositoryTest {
     final Path file =
         seed(
             "{\"personalBests\":{\"Any%\":{\"category\":\"Any%\","
-                + "\"goldenSplits\":[\"PT30S\",\"PT45S\"],\"bestTotal\":\"PT1M40S\"}},\"runs\":[]}");
+                + "\"goldenSplits\":[\"PT30S\",\"PT45S\"],"
+                + "\"bestTotal\":\"PT1M40S\"}},\"runs\":[]}");
     final JsonSplitRepository repository = new JsonSplitRepository(file);
 
     final PersonalBest pb = repository.load("Any%");
@@ -77,7 +78,8 @@ class JsonSplitRepositoryTest {
     final Path file =
         seed(
             "{\"personalBests\":{"
-                + "\"Any%\":{\"category\":\"Any%\",\"goldenSplits\":[\"PT0S\"],\"bestTotal\":\"PT0S\"},"
+                + "\"Any%\":{\"category\":\"Any%\","
+                + "\"goldenSplits\":[\"PT0S\"],\"bestTotal\":\"PT0S\"},"
                 + "\"120 Star\":{\"category\":\"120 Star\",\"goldenSplits\":[\"PT0S\"],"
                 + "\"bestTotal\":\"PT0S\"}},\"runs\":[]}");
     final JsonSplitRepository repository = new JsonSplitRepository(file);

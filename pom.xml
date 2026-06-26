@@ -28,6 +28,7 @@
 
         <!-- Build plugin versions. -->
         <compiler.plugin.version>3.14.1</compiler.plugin.version>
+        <dependency.plugin.version>3.8.1</dependency.plugin.version>
         <surefire.plugin.version>3.5.6</surefire.plugin.version>
         <jar.plugin.version>3.5.0</jar.plugin.version>
         <shade.plugin.version>3.6.0</shade.plugin.version>
@@ -91,6 +92,15 @@
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- mockito-core declared explicitly so its jar can be loaded as a launch-time
+             -javaagent (see maven-dependency-plugin + surefire below); Mockito otherwise
+             self-attaches, which newer JDKs warn about and will eventually forbid. -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -103,6 +113,9 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${compiler.plugin.version}</version>
                 <configuration>
+                    <!-- No annotation processors are used; this silences the Java 21
+                         implicit-processing deprecation warning. -->
+                    <proc>none</proc>
                     <compilerArgs>
                         <arg>-Xlint:all</arg>
                     </compilerArgs>
@@ -135,6 +148,19 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <filters>
+                                <!-- module-info is meaningless in a flattened uber-jar and trips
+                                     shade's "strong encapsulation" warning; META-INF/DEPENDENCIES
+                                     is a duplicated, purely informational Maven listing. -->
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                        <exclude>META-INF/DEPENDENCIES</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                             <transformers>
                                 <transformer
                                     implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
@@ -145,6 +171,12 @@
                                 </transformer>
                                 <transformer
                                     implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <!-- Merge the duplicated Apache LICENSE / NOTICE files instead of
+                                     arbitrarily keeping one (keeps the bundle license-compliant). -->
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
                             </transformers>
                         </configuration>
                     </execution>
@@ -152,10 +184,34 @@
             </plugin>
 
             <!-- ===== Module 4: Automated Testing ===== -->
+
+            <!-- Resolve the mockito-core artifact path into the
+                 ${org.mockito:mockito-core:jar} property so surefire can pass it as a
+                 launch-time -javaagent (binds to the initialize phase by default). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>${dependency.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>resolve-mockito-agent</id>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${surefire.plugin.version}</version>
+                <configuration>
+                    <!-- @{argLine} carries JaCoCo's agent (set by prepare-agent) through
+                         late evaluation; the explicit -javaagent stops Mockito self-attaching;
+                         -Xshare:off silences the CDS warning the appended agent would emit. -->
+                    <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar} -Xshare:off</argLine>
+                </configuration>
             </plugin>
 
             <!-- JaCoCo: instrument tests and enforce a coverage floor. -->
