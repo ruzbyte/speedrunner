@@ -27,17 +27,24 @@ test root `src/test/java`. Four design patterns, each motivated by the domain:
 
 - **State** — abstract `TimerState`, concrete `IdleState`, `RunningState`,
   `PausedState`, `FinishedState`.
-    - States are **stateless and shareable** (one instance per state). Data lives
-      in the context `SpeedrunTimer`, not in the states.
-    - Every state method takes `(SpeedrunTimer ctx, Instant now)` — the timestamp
-      is **passed through, not re-read inside the states**.
-    - The **state** triggers transitions (`ctx.setState(...)`), not the context.
+    - Each state holds a **back-reference to its orchestrator** `SpeedrunTimer`
+      (passed via the constructor) and is **created fresh on each transition**
+      (`timer.setState(new RunningState(timer), now)`). **No singletons.**
+    - States hold **no run data** — the splits, start instant and accumulated
+      pause all live on the orchestrator `SpeedrunTimer`; a state's only field is
+      the orchestrator reference.
+    - Every state command method takes `(Instant now)` — the timestamp is
+      **passed through, not re-read inside the states** (states never call
+      `clock.now()`).
+    - The **state** triggers transitions (`timer.setState(new XState(timer),
+      now)`), not the orchestrator.
     - `entry()`/`exit()` encapsulate transition side effects (e.g.
-      `FinishedState.entry` saves the run via the repository).
+      `FinishedState.entry` builds the immutable `Run` and saves it via the
+      repository).
     - States reach the repository and listeners **only through package-private
-      helper methods on the context** (`ctx.save(...)`, `ctx.fireFinish(...)`,
-      etc.). The states hold no dependencies of their own — this is what keeps
-      them stateless and shareable.
+      helper methods on the orchestrator** (`timer.save(...)`,
+      `timer.fireFinish(...)`, etc.); the orchestrator owns all collaborators
+      (clock, repository, calculator).
     - Illegal transitions throw `IllegalStateException` — never silently ignored.
 - **Strategy** — `CompareStrategy` for comparison modes (`VsPersonalBest`,
   `VsSumOfBest`, `VsAverage`), used by `SplitCalculator`.
