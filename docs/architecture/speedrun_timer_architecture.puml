@@ -48,7 +48,7 @@ package core {
     + reset() : void
     + status() : void
     + compareToPersonalBest() : Duration
-    + setState(state : TimerState) : void
+    ~ setState(state : TimerState, now : Instant) : void
     + addListener(l : TimerListener) : void
     ~ save(run : Run) : void
     ~ fireStart(now : Instant) : void
@@ -66,8 +66,11 @@ package core {
     den aktuellen Zustand; reicht den EINMAL frueh
     genommenen Zeitstempel (now) durch.
     Zustaende erreichen Repository und Listener NUR
-    ueber die paketprivaten Helfer (save / fireXxx) —
-    Zustaende halten selbst keine Abhaengigkeiten.
+    ueber die paketprivaten Helfer (save / fireXxx).
+    Zustaende halten eine Rueckreferenz auf den
+    Orchestrator (SpeedrunTimer), sonst keine Daten,
+    und werden bei jedem Uebergang neu erzeugt
+    (kein Singleton).
     Der unveraenderliche Run wird einmalig in
     FinishedState.entry gebaut und gespeichert.
     Repository, Clock, Calculator per Konstruktor
@@ -76,13 +79,14 @@ package core {
 
   ' ---- State-Pattern ----
   abstract class TimerState {
-    + {abstract} start(ctx : SpeedrunTimer, now : Instant) : void
-    + {abstract} split(ctx : SpeedrunTimer, now : Instant) : void
-    + {abstract} pause(ctx : SpeedrunTimer, now : Instant) : void
-    + {abstract} resume(ctx : SpeedrunTimer, now : Instant) : void
-    + {abstract} reset(ctx : SpeedrunTimer, now : Instant) : void
-    + entry(ctx : SpeedrunTimer, now : Instant) : void
-    + exit(ctx : SpeedrunTimer, now : Instant) : void
+    # timer : SpeedrunTimer
+    + {abstract} start(now : Instant) : void
+    + {abstract} split(now : Instant) : void
+    + {abstract} pause(now : Instant) : void
+    + {abstract} resume(now : Instant) : void
+    + {abstract} reset(now : Instant) : void
+    + entry(now : Instant) : void
+    + exit(now : Instant) : void
   }
 
   class IdleState {
@@ -160,6 +164,7 @@ package adapters {
 
 ' ============ BEZIEHUNGEN ============
 SpeedrunTimer o--> "1" TimerState : aktueller Zustand
+TimerState --> SpeedrunTimer : Orchestrator (Rueckreferenz)
 SpeedrunTimer ..> Clock : nutzt
 SpeedrunTimer ..> TimerListener : benachrichtigt
 SpeedrunTimer ..> SplitRepository : speichert (via FinishedState.entry)
