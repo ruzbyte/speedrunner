@@ -1,129 +1,171 @@
 @startuml SpeedrunTimerArchitecture
-title Speedrun-Timer — Architektur (Layered + State/Strategy/Repository/Observer)
+title Speedrun-Timer — Architektur (Layered: Ports / Core / Adapters)
 
-' ============ PORTS (Interfaces) ============
-interface Clock {
-  + now() : Instant
-}
+' Layer: dependencies point inward only — Adapters --> Ports <-- Core.
+' CompareStrategy is NOT a port: it has no external adapter, all
+' implementations are domain logic and live in the Core.
 
-interface SplitRepository {
-  + load(category : String) : PersonalBest
-  + save(run : Run) : void
-}
+' ============ PORTS (Interfaces, vom Core besessen) ============
+package ports {
+  interface Clock {
+    + now() : Instant
+  }
 
-interface TimerListener {
-  + onStart(now : Instant) : void
-  + onSplit(split : Split) : void
-  + onPause(now : Instant) : void
-  + onResume(now : Instant) : void
-  + onFinish(run : Run) : void
-  + onReset() : void
-}
+  interface SplitRepository {
+    + load(category : String) : PersonalBest
+    + save(run : Run) : void
+  }
 
-interface CompareStrategy {
-  + compare(current : Run, reference : PersonalBest) : Duration
-}
-
-' ============ CONTEXT ============
-class SpeedrunTimer {
-  - state : TimerState
-  - run : Run
-  - clock : Clock
-  - listeners : List<TimerListener>
-  + start() : void
-  + split() : void
-  + pause() : void
-  + resume() : void
-  + reset() : void
-  + setState(state : TimerState) : void
-  + addListener(l : TimerListener) : void
+  interface TimerListener {
+    + onStart(now : Instant) : void
+    + onSplit(split : Split) : void
+    + onPause(now : Instant) : void
+    + onResume(now : Instant) : void
+    + onFinish(run : Run) : void
+    + onReset() : void
+  }
 }
 
-note right of SpeedrunTimer
-  Context des State-Patterns.
-  Haelt die Daten (Run, Startzeit),
-  delegiert Kommandos an den aktuellen
-  Zustand und reicht den EINMAL frueh
-  genommenen Zeitstempel (now) durch.
-  Repository per Konstruktor injiziert
-  (manuelle DI ab Main, kein Singleton).
-end note
+' ============ CORE (Domaene + Logik, keine Abhaengigkeit nach aussen) ============
+package core {
 
-' ============ STATE-PATTERN ============
-abstract class TimerState {
-  + {abstract} start(ctx : SpeedrunTimer, now : Instant) : void
-  + {abstract} split(ctx : SpeedrunTimer, now : Instant) : void
-  + {abstract} pause(ctx : SpeedrunTimer, now : Instant) : void
-  + {abstract} resume(ctx : SpeedrunTimer, now : Instant) : void
-  + {abstract} reset(ctx : SpeedrunTimer, now : Instant) : void
-  + entry(ctx : SpeedrunTimer, now : Instant) : void
-  + exit(ctx : SpeedrunTimer, now : Instant) : void
+  ' ---- Context des State-Patterns ----
+  class SpeedrunTimer {
+    - state : TimerState
+    - clock : Clock
+    - repo : SplitRepository
+    - calculator : SplitCalculator
+    - listeners : List<TimerListener>
+    - category : String
+    - splits : List<Split>
+    - startInstant : Instant
+    - accumulatedPause : Duration
+    - pauseStart : Instant
+    + start() : void
+    + split() : void
+    + pause() : void
+    + resume() : void
+    + reset() : void
+    + status() : void
+    + compareToPersonalBest() : Duration
+    + setState(state : TimerState) : void
+    + addListener(l : TimerListener) : void
+    ~ save(run : Run) : void
+    ~ fireStart(now : Instant) : void
+    ~ fireSplit(split : Split) : void
+    ~ firePause(now : Instant) : void
+    ~ fireResume(now : Instant) : void
+    ~ fireFinish(run : Run) : void
+    ~ fireReset() : void
+  }
+
+  note right of SpeedrunTimer
+    Context des State-Patterns.
+    Haelt die laufenden Daten (Splits, Startzeit,
+    akkumulierte Pause) und delegiert Kommandos an
+    den aktuellen Zustand; reicht den EINMAL frueh
+    genommenen Zeitstempel (now) durch.
+    Zustaende erreichen Repository und Listener NUR
+    ueber die paketprivaten Helfer (save / fireXxx) —
+    Zustaende halten selbst keine Abhaengigkeiten.
+    Der unveraenderliche Run wird einmalig in
+    FinishedState.entry gebaut und gespeichert.
+    Repository, Clock, Calculator per Konstruktor
+    injiziert (manuelle DI ab Main, kein Singleton).
+  end note
+
+  ' ---- State-Pattern ----
+  abstract class TimerState {
+    + {abstract} start(ctx : SpeedrunTimer, now : Instant) : void
+    + {abstract} split(ctx : SpeedrunTimer, now : Instant) : void
+    + {abstract} pause(ctx : SpeedrunTimer, now : Instant) : void
+    + {abstract} resume(ctx : SpeedrunTimer, now : Instant) : void
+    + {abstract} reset(ctx : SpeedrunTimer, now : Instant) : void
+    + entry(ctx : SpeedrunTimer, now : Instant) : void
+    + exit(ctx : SpeedrunTimer, now : Instant) : void
+  }
+
+  class IdleState {
+    ' start -> RunningState; sonst IllegalStateException
+  }
+  class RunningState {
+    ' split, pause -> Paused, reset; entry: Startzeit merken
+  }
+  class PausedState {
+    ' resume -> Running, reset; sonst IllegalStateException
+  }
+  class FinishedState {
+    ' nur reset; entry: Run bauen + ueber ctx.save speichern
+  }
+
+  TimerState <|-- IdleState
+  TimerState <|-- RunningState
+  TimerState <|-- PausedState
+  TimerState <|-- FinishedState
+
+  ' ---- Strategy-Pattern (Domaenen-Policy, kein Port) ----
+  class SplitCalculator {
+    - strategy : CompareStrategy
+    + compareAgainst(run : Run, pb : PersonalBest) : Duration
+  }
+
+  interface CompareStrategy {
+    + compare(current : Run, reference : PersonalBest) : Duration
+  }
+
+  class VsPersonalBest
+  class VsSumOfBest
+  class VsAverage
+
+  CompareStrategy <|.. VsPersonalBest
+  CompareStrategy <|.. VsSumOfBest
+  CompareStrategy <|.. VsAverage
+
+  ' ---- Domain (Records, immutable) ----
+  class Split <<record>> {
+    + name : String
+    + timestamp : Instant
+  }
+  class Run <<record>> {
+    + category : String
+    + splits : List<Split>
+    + startInstant : Instant
+  }
+  class PersonalBest <<record>> {
+    + category : String
+    + goldenSplits : List<Duration>
+    + bestTotal : Duration
+  }
 }
 
-class IdleState {
-  ' start -> RunningState; sonst IllegalStateException
-}
-class RunningState {
-  ' split, pause -> Paused, reset; entry: Startzeit merken
-}
-class PausedState {
-  ' resume -> Running, reset; sonst IllegalStateException
-}
-class FinishedState {
-  ' nur reset; entry: Run ans Repository speichern
-}
-
-TimerState <|-- IdleState
-TimerState <|-- RunningState
-TimerState <|-- PausedState
-TimerState <|-- FinishedState
-
-' ============ STRATEGY-PATTERN ============
-class SplitCalculator {
-  - strategy : CompareStrategy
-  + compareAgainst(run : Run, pb : PersonalBest) : Duration
-}
-
-class VsPersonalBest
-class VsSumOfBest
-class VsAverage
-
-CompareStrategy <|.. VsPersonalBest
-CompareStrategy <|.. VsSumOfBest
-CompareStrategy <|.. VsAverage
-
-' ============ DOMAIN (Records) ============
-class Split <<record>> {
-  + name : String
-  + timestamp : Instant
-}
-class Run <<record>> {
-  + category : String
-  + splits : List<Split>
-  + startInstant : Instant
-}
-class PersonalBest <<record>> {
-  + category : String
-  + goldenSplits : List<Duration>
-  + bestTotal : Duration
-}
-
-' ============ ADAPTER ============
-class JsonSplitRepository {
-  ' Gson-Implementierung von SplitRepository
-}
-class SystemClock {
-  ' Instant.now()
-}
-class CliController {
-  ' liest Kommandos, implementiert TimerListener fuer Ausgabe
+' ============ ADAPTERS (haengen nach innen von den Ports ab) ============
+package adapters {
+  class JsonSplitRepository {
+    ' Gson-Implementierung von SplitRepository
+  }
+  class SystemClock {
+    ' Instant.now()
+  }
+  class CliController {
+    ' liest Kommandos, ruft SpeedrunTimer auf,
+    ' implementiert TimerListener fuer die Ausgabe
+  }
+  class Main {
+    ' Composition Root: erzeugt SystemClock,
+    ' JsonSplitRepository, SplitCalculator, SpeedrunTimer,
+    ' CliController und verdrahtet sie (manuelle DI)
+    + {static} main(args : String[]) : void
+  }
 }
 
 ' ============ BEZIEHUNGEN ============
 SpeedrunTimer o--> "1" TimerState : aktueller Zustand
 SpeedrunTimer ..> Clock : nutzt
 SpeedrunTimer ..> TimerListener : benachrichtigt
-SpeedrunTimer *--> "1" Run : haelt
+SpeedrunTimer ..> SplitRepository : speichert (via FinishedState.entry)
+SpeedrunTimer ..> SplitCalculator : vergleicht (status)
+SpeedrunTimer o--> "*" Split : sammelt (laufend)
+SpeedrunTimer ..> Run : baut bei Finish
 
 SplitCalculator ..> CompareStrategy : nutzt
 
@@ -134,5 +176,12 @@ Run *--> "*" Split : enthaelt
 SplitRepository <|.. JsonSplitRepository
 Clock <|.. SystemClock
 TimerListener <|.. CliController
+CliController ..> SpeedrunTimer : steuert
+
+Main ..> SpeedrunTimer : erzeugt & verdrahtet
+Main ..> JsonSplitRepository : erzeugt
+Main ..> SystemClock : erzeugt
+Main ..> SplitCalculator : erzeugt
+Main ..> CliController : erzeugt
 
 @enduml
