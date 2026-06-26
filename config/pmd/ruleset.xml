@@ -11,10 +11,8 @@
     Spotless (google-java-format) to avoid duplicate, conflicting reports.
   </description>
 
-  <rule ref="category/java/bestpractices.xml">
-    <!-- This is a console application: main() writes to stdout by design. -->
-    <exclude name="SystemPrintln"/>
-  </rule>
+  <!-- SystemPrintln stays enabled: all output goes through Log4J2, never System.out. -->
+  <rule ref="category/java/bestpractices.xml"/>
 
   <rule ref="category/java/errorprone.xml">
     <!-- Reconfigured below to treat 0/0L as non-magic in guard clauses. -->
@@ -27,7 +25,12 @@
     </properties>
   </rule>
 
-  <rule ref="category/java/multithreading.xml"/>
+  <rule ref="category/java/multithreading.xml">
+    <!-- Single-threaded CLI: maps are thread-confined (and are serialization DTOs),
+         so ConcurrentHashMap would only add misleading overhead. The remaining
+         multithreading checks stay enabled as a safety net. -->
+    <exclude name="UseConcurrentHashMap"/>
+  </rule>
   <rule ref="category/java/performance.xml"/>
 
 </ruleset>

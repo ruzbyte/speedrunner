@@ -1,0 +1,51 @@
+{
+  "personalBests": {
+    "Any%": {
+      "category": "Any%",
+      "goldenSplits": [
+        "PT5.715452784S",
+        "PT6.382980857S",
+        "PT21.788095199S"
+      ],
+      "bestTotal": "PT33.88652884S"
+    }
+  },
+  "runs": [
+    {
+      "category": "Any%",
+      "splits": [
+        {
+          "name": "Green Hill",
+          "timestamp": "2026-06-26T10:00:30Z"
+        },
+        {
+          "name": "Marble Zone",
+          "timestamp": "2026-06-26T10:01:10Z"
+        },
+        {
+          "name": "Final Boss",
+          "timestamp": "2026-06-26T10:02:00Z"
+        }
+      ],
+      "startInstant": "2026-06-26T10:00:00Z"
+    },
+    {
+      "category": "Any%",
+      "splits": [
+        {
+          "name": "Split 1",
+          "timestamp": "2026-06-26T18:30:06.012671993Z"
+        },
+        {
+          "name": "Split 2",
+          "timestamp": "2026-06-26T18:30:12.395652850Z"
+        },
+        {
+          "name": "Split 3",
+          "timestamp": "2026-06-26T18:30:34.183748049Z"
+        }
+      ],
+      "startInstant": "2026-06-26T18:30:00.297219209Z"
+    }
+  ]
+}

@@ -85,4 +85,24 @@ class RunTest {
 
     assertEquals(Duration.ofMillis(5_000L), run.totalTime());
   }
+
+  @Test
+  @DisplayName("reports no segments when there are no splits")
+  void segmentsAreEmptyWithoutSplits() {
+    final Run run = new Run("Any%", List.of(), START);
+
+    assertEquals(List.of(), run.segments());
+  }
+
+  @Test
+  @DisplayName("reports each segment as the gap between consecutive splits")
+  void segmentsAreDifferencesBetweenSplits() {
+    final List<Split> splits =
+        List.of(
+            new Split("Mid", Instant.ofEpochMilli(2_000L)),
+            new Split("End", Instant.ofEpochMilli(5_000L)));
+    final Run run = new Run("Any%", splits, START);
+
+    assertEquals(List.of(Duration.ofMillis(2_000L), Duration.ofMillis(3_000L)), run.segments());
+  }
 }

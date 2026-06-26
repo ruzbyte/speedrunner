@@ -1,6 +1,7 @@
 package com.ruzbyte.speedrunner.core;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -28,5 +29,42 @@ public record PersonalBest(String category, List<Duration> goldenSplits, Duratio
       throw new IllegalArgumentException("category must not be blank");
     }
     goldenSplits = List.copyOf(goldenSplits);
+  }
+
+  /**
+   * Returns a new personal best merged with a completed run: each golden split becomes the faster
+   * of the stored split and the run's matching segment, and the best total becomes the faster of
+   * the two. A stored value of {@link Duration#ZERO} counts as "unset" and is always replaced. When
+   * no golden layout is recorded yet (size mismatch), the run's segments are adopted as-is.
+   *
+   * @param run the completed run to merge in
+   * @return a new, improved personal best (this instance is never mutated)
+   */
+  public PersonalBest improvedWith(final Run run) {
+    final List<Duration> runSegments = run.segments();
+    final List<Duration> mergedGolden;
+    if (goldenSplits.size() == runSegments.size()) {
+      mergedGolden = new ArrayList<>(goldenSplits.size());
+      for (int i = 0; i < goldenSplits.size(); i++) {
+        mergedGolden.add(faster(goldenSplits.get(i), runSegments.get(i)));
+      }
+    } else {
+      mergedGolden = runSegments;
+    }
+    return new PersonalBest(category, mergedGolden, faster(bestTotal, run.totalTime()));
+  }
+
+  /**
+   * Returns the faster of two durations, treating a zero {@code stored} value as "unset".
+   *
+   * @param stored the currently stored duration ({@link Duration#ZERO} means unset)
+   * @param candidate the candidate duration from a new run
+   * @return the duration to keep
+   */
+  private static Duration faster(final Duration stored, final Duration candidate) {
+    if (stored.isZero()) {
+      return candidate;
+    }
+    return stored.compareTo(candidate) <= 0 ? stored : candidate;
   }
 }

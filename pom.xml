@@ -21,6 +21,8 @@
         <main.class>com.ruzbyte.speedrunner.Main</main.class>
 
         <!-- Dependency versions. -->
+        <gson.version>2.11.0</gson.version>
+        <log4j.version>2.24.3</log4j.version>
         <junit.version>5.14.4</junit.version>
         <mockito.version>5.23.0</mockito.version>
 
@@ -28,6 +30,7 @@
         <compiler.plugin.version>3.14.1</compiler.plugin.version>
         <surefire.plugin.version>3.5.6</surefire.plugin.version>
         <jar.plugin.version>3.5.0</jar.plugin.version>
+        <shade.plugin.version>3.6.0</shade.plugin.version>
 
         <!-- Quality plugin versions. -->
         <spotless.plugin.version>3.6.0</spotless.plugin.version>
@@ -54,6 +57,26 @@
     </dependencyManagement>
 
     <dependencies>
+        <!-- Gson: JSON persistence for runs and personal bests. -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
+        </dependency>
+
+        <!-- Log4J2: all application output and diagnostics. -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- JUnit 5 (Jupiter) + parameterized tests. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -97,6 +120,35 @@
                         </manifest>
                     </archive>
                 </configuration>
+            </plugin>
+
+            <!-- Shade: bundle dependencies into a self-contained executable JAR. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${shade.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <Main-Class>${main.class}</Main-Class>
+                                        <Multi-Release>true</Multi-Release>
+                                    </manifestEntries>
+                                </transformer>
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- ===== Module 4: Automated Testing ===== -->

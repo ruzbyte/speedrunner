@@ -2,6 +2,7 @@ package com.ruzbyte.speedrunner.core;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -50,5 +51,21 @@ public record Run(String category, List<Split> splits, Instant startInstant) {
     }
     final Split last = splits.get(splits.size() - 1);
     return Duration.between(startInstant, last.timestamp());
+  }
+
+  /**
+   * Returns the duration of each segment: the time between consecutive splits, with the first
+   * segment measured from the start instant. Empty if no splits were recorded.
+   *
+   * @return the immutable list of segment durations, in order
+   */
+  public List<Duration> segments() {
+    final List<Duration> result = new ArrayList<>(splits.size());
+    Instant previous = startInstant;
+    for (final Split split : splits) {
+      result.add(Duration.between(previous, split.timestamp()));
+      previous = split.timestamp();
+    }
+    return List.copyOf(result);
   }
 }

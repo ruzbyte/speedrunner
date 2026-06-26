@@ -1,0 +1,22 @@
+{
+  "personalBests": {
+    "Demo Sprint": {
+      "category": "Demo Sprint",
+      "goldenSplits": [
+        "PT3S",
+        "PT4S"
+      ],
+      "bestTotal": "PT8S"
+    },
+    "Demo Marathon": {
+      "category": "Demo Marathon",
+      "goldenSplits": [
+        "PT10S",
+        "PT12S",
+        "PT15S"
+      ],
+      "bestTotal": "PT40S"
+    }
+  },
+  "runs": []
+}

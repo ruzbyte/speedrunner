@@ -112,6 +112,23 @@ public final class SpeedrunTimer {
   }
 
   /**
+   * Returns the elapsed run time, with paused time excluded: {@link Duration#ZERO} while idle, the
+   * live time while running, the frozen time while paused, and the final total once finished.
+   *
+   * @return the pause-adjusted elapsed time for the current state
+   */
+  public Duration elapsed() {
+    if (currentState instanceof IdleState) {
+      return Duration.ZERO;
+    }
+    if (currentState instanceof FinishedState) {
+      return buildRun().totalTime();
+    }
+    final Instant base = (currentState instanceof PausedState) ? pauseStart : clock.now();
+    return Duration.between(startInstant, base.minus(pauseAccumulated));
+  }
+
+  /**
    * Returns the category this timer runs.
    *
    * @return the category
