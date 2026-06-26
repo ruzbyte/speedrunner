@@ -1,0 +1,46 @@
+name: Release
+
+# Cut a release when a version tag is pushed (e.g. `v1.2.0`). The build runs the
+# full quality gate first, then the maven-shade-plugin produces the self-contained
+# executable JAR, which is attached to a GitHub Release whose notes are generated
+# from the commits since the previous tag.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build shaded JAR and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          # Full history so the release notes can diff against the previous tag.
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build shaded JAR (runs the full quality gate)
+        run: mvn -B -ntp clean verify
+
+      - name: Stage release artifact
+        # Carry the tag into the file name so each release JAR is uniquely named.
+        run: cp target/speedrunner.jar "speedrunner-${{ github.ref_name }}.jar"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: speedrunner ${{ github.ref_name }}
+          generate_release_notes: true
+          files: speedrunner-${{ github.ref_name }}.jar
