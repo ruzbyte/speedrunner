@@ -1,15 +1,26 @@
 {
-  "personalBests": {
-    "Demo Sprint": {
-      "category": "Demo Sprint",
+  "personalBests": [
+    {
+      "game": "Demo Game",
+      "category": "Any%",
+      "splitNames": [
+        "Green Hill",
+        "Marble Zone"
+      ],
       "goldenSplits": [
         "PT3S",
         "PT4S"
       ],
       "bestTotal": "PT8S"
     },
-    "Demo Marathon": {
-      "category": "Demo Marathon",
+    {
+      "game": "Demo Game",
+      "category": "100%",
+      "splitNames": [
+        "Stage 1",
+        "Stage 2",
+        "Stage 3"
+      ],
       "goldenSplits": [
         "PT10S",
         "PT12S",
@@ -17,6 +28,6 @@
       ],
       "bestTotal": "PT40S"
     }
-  },
+  ],
   "runs": []
 }

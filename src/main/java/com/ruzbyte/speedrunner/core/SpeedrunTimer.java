@@ -26,8 +26,7 @@ import java.util.Objects;
  */
 public final class SpeedrunTimer {
 
-  private static final String SPLIT_NAME_PREFIX = "Split ";
-
+  private final String gameName;
   private final String categoryName;
   private final Clock clock;
   private final SplitRepository repository;
@@ -42,21 +41,27 @@ public final class SpeedrunTimer {
   private Instant pauseStart;
 
   /**
-   * Creates a timer for a single category with its collaborators injected.
+   * Creates a timer for a single route (game and category) with its collaborators injected.
    *
+   * @param game the game; must not be {@code null} or blank
    * @param category the speedrun category; must not be {@code null} or blank
    * @param clock the time source; must not be {@code null}
    * @param repository the persistence port; must not be {@code null}
    * @param calculator the comparison calculator; must not be {@code null}
    */
   public SpeedrunTimer(
+      final String game,
       final String category,
       final Clock clock,
       final SplitRepository repository,
       final SplitCalculator calculator) {
+    if (game == null || game.isBlank()) {
+      throw new IllegalArgumentException("game must not be blank");
+    }
     if (category == null || category.isBlank()) {
       throw new IllegalArgumentException("category must not be blank");
     }
+    this.gameName = game;
     this.categoryName = category;
     this.clock = Objects.requireNonNull(clock, "clock must not be null");
     this.repository = Objects.requireNonNull(repository, "repository must not be null");
@@ -129,6 +134,15 @@ public final class SpeedrunTimer {
   }
 
   /**
+   * Returns the game this timer runs.
+   *
+   * @return the game
+   */
+  public String game() {
+    return gameName;
+  }
+
+  /**
    * Returns the category this timer runs.
    *
    * @return the category
@@ -159,12 +173,12 @@ public final class SpeedrunTimer {
   }
 
   PersonalBest loadReference() {
-    reference = repository.load(categoryName);
+    reference = repository.load(gameName, categoryName);
     return reference;
   }
 
   int expectedSegments() {
-    return reference.goldenSplits().size();
+    return reference.splitNames().size();
   }
 
   Duration accumulatedPause() {
@@ -178,7 +192,7 @@ public final class SpeedrunTimer {
   }
 
   String nextSplitName() {
-    return SPLIT_NAME_PREFIX + (recordedSplits.size() + 1);
+    return reference.splitNames().get(recordedSplits.size());
   }
 
   void addSplit(final Split split) {
@@ -203,7 +217,7 @@ public final class SpeedrunTimer {
   }
 
   Run buildRun() {
-    return new Run(categoryName, recordedSplits, startInstant);
+    return new Run(gameName, categoryName, recordedSplits, startInstant);
   }
 
   void save(final Run run) {

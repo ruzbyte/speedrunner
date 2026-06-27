@@ -25,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class SpeedrunTimerTest {
 
+  private static final String GAME = "Sonic";
   private static final String CATEGORY = "Any%";
 
   @Mock private SplitRepository repository;
@@ -37,16 +38,20 @@ class SpeedrunTimerTest {
   void setUp() {
     clock = new MutableClock(Instant.EPOCH);
     timer =
-        new SpeedrunTimer(CATEGORY, clock, repository, new SplitCalculator(new VsPersonalBest()));
+        new SpeedrunTimer(
+            GAME, CATEGORY, clock, repository, new SplitCalculator(new VsPersonalBest()));
     timer.addListener(listener);
   }
 
   private void seedLayout(final int segments, final Duration bestTotal) {
+    final List<String> names = new ArrayList<>();
     final List<Duration> golden = new ArrayList<>();
     for (int i = 0; i < segments; i++) {
+      names.add("S" + (i + 1));
       golden.add(Duration.ofSeconds(10L));
     }
-    when(repository.load(CATEGORY)).thenReturn(new PersonalBest(CATEGORY, golden, bestTotal));
+    when(repository.load(GAME, CATEGORY))
+        .thenReturn(new PersonalBest(GAME, CATEGORY, names, golden, bestTotal));
   }
 
   private static Instant at(final long seconds) {
@@ -302,11 +307,23 @@ class SpeedrunTimerTest {
   }
 
   @Test
+  @DisplayName("rejects a blank game")
+  void rejectsBlankGame() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new SpeedrunTimer(
+                " ", CATEGORY, clock, repository, new SplitCalculator(new VsPersonalBest())));
+  }
+
+  @Test
   @DisplayName("rejects a blank category")
   void rejectsBlankCategory() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> new SpeedrunTimer(" ", clock, repository, new SplitCalculator(new VsPersonalBest())));
+        () ->
+            new SpeedrunTimer(
+                GAME, " ", clock, repository, new SplitCalculator(new VsPersonalBest())));
   }
 
   @Test
@@ -316,7 +333,7 @@ class SpeedrunTimerTest {
         NullPointerException.class,
         () ->
             new SpeedrunTimer(
-                CATEGORY, null, repository, new SplitCalculator(new VsPersonalBest())));
+                GAME, CATEGORY, null, repository, new SplitCalculator(new VsPersonalBest())));
   }
 
   @Test

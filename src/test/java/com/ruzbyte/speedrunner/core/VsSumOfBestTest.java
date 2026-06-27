@@ -16,13 +16,13 @@ class VsSumOfBestTest {
 
   private static Run runOfSeconds(final long totalSeconds) {
     final Split end = new Split("End", START.plusSeconds(totalSeconds));
-    return new Run("Any%", List.of(end), START);
+    return new Run("Sonic", "Any%", List.of(end), START);
   }
 
   private static PersonalBest pbWithGolden(final long... goldenSeconds) {
     final List<Duration> golden =
         java.util.Arrays.stream(goldenSeconds).mapToObj(Duration::ofSeconds).toList();
-    return new PersonalBest("Any%", golden, Duration.ofMinutes(99L));
+    return new PersonalBest("Sonic", "Any%", List.of(), golden, Duration.ofMinutes(99L));
   }
 
   @Test

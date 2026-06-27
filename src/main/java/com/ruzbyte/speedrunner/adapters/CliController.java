@@ -1,6 +1,7 @@
 package com.ruzbyte.speedrunner.adapters;
 
 import com.ruzbyte.speedrunner.TimeFormat;
+import com.ruzbyte.speedrunner.core.PersonalBest;
 import com.ruzbyte.speedrunner.core.Run;
 import com.ruzbyte.speedrunner.core.SpeedrunTimer;
 import com.ruzbyte.speedrunner.core.Split;
@@ -42,32 +43,109 @@ public final class CliController implements TimerListener {
   }
 
   /**
-   * Prompts the user to choose one of the repository's seeded categories.
+   * Lets the user pick an existing configured route or create a new one. Existing routes are listed
+   * as "game — category"; an extra option creates a new run by prompting for the game, category and
+   * split names, which is then persisted via the repository so it is available next launch.
    *
-   * @param repository the repository whose categories are offered
+   * @param repository the repository whose routes are offered and to which a new one is saved
    * @param input the input source
-   * @param logger the logger for the prompt
-   * @return the chosen category, or {@code null} if none are seeded or input ended
+   * @param logger the logger for the prompts
+   * @return the chosen or newly configured route, or {@code null} if input ended first
    * @throws IOException if reading the input fails
    */
-  public static String chooseCategory(
+  public static PersonalBest chooseRoute(
       final SplitRepository repository, final BufferedReader input, final Logger logger)
       throws IOException {
-    final List<String> categories = new ArrayList<>(repository.categories());
-    if (categories.isEmpty()) {
-      return null;
+    final List<PersonalBest> routes = repository.layouts();
+    if (routes.isEmpty()) {
+      return setupNewRoute(repository, input, logger);
     }
-    emit(logger, "Select a category:");
-    for (int i = 0; i < categories.size(); i++) {
-      emit(logger, (i + 1) + ") " + categories.get(i));
+    emit(logger, "Select a run:");
+    for (int i = 0; i < routes.size(); i++) {
+      final PersonalBest route = routes.get(i);
+      emit(logger, (i + 1) + ") " + route.game() + " — " + route.category());
     }
+    final int createOption = routes.size() + 1;
+    emit(logger, createOption + ") Configure a new run…");
     String line = input.readLine();
     while (line != null) {
       final String trimmed = line.trim();
-      if (isInRange(trimmed, categories.size())) {
-        return categories.get(Integer.parseInt(trimmed) - 1);
+      if (isInRange(trimmed, createOption)) {
+        final int choice = Integer.parseInt(trimmed);
+        if (choice == createOption) {
+          return setupNewRoute(repository, input, logger);
+        }
+        return routes.get(choice - 1);
       }
-      emit(logger, "Enter a number between 1 and " + categories.size() + ".");
+      emit(logger, "Enter a number between 1 and " + createOption + ".");
+      line = input.readLine();
+    }
+    return null;
+  }
+
+  /**
+   * Interactively configures a new route: game, category and one split name per line (a blank line
+   * ends the list). The route is persisted with no times yet and returned.
+   *
+   * @return the configured route, or {@code null} if input ended before it was complete
+   */
+  private static PersonalBest setupNewRoute(
+      final SplitRepository repository, final BufferedReader input, final Logger logger)
+      throws IOException {
+    emit(logger, "Game name:");
+    final String game = readNonBlank(input, logger, "Game name");
+    if (game == null) {
+      return null;
+    }
+    emit(logger, "Category name:");
+    final String category = readNonBlank(input, logger, "Category name");
+    if (category == null) {
+      return null;
+    }
+    emit(logger, "Enter split names, one per line; blank line to finish:");
+    final List<String> splitNames = readSplitNames(input, logger);
+    if (splitNames.isEmpty()) {
+      return null;
+    }
+    final PersonalBest route =
+        new PersonalBest(game, category, splitNames, List.of(), Duration.ZERO);
+    repository.saveLayout(route);
+    emit(
+        logger,
+        "Configured " + game + " — " + category + " with " + splitNames.size() + " splits.");
+    return route;
+  }
+
+  /** Reads non-blank split names until a blank line; re-prompts if none are given before EOF. */
+  private static List<String> readSplitNames(final BufferedReader input, final Logger logger)
+      throws IOException {
+    final List<String> splitNames = new ArrayList<>();
+    String line = input.readLine();
+    while (line != null) {
+      final String trimmed = line.trim();
+      if (trimmed.isEmpty()) {
+        if (!splitNames.isEmpty()) {
+          break;
+        }
+        emit(logger, "Enter at least one split name.");
+      } else {
+        splitNames.add(trimmed);
+      }
+      line = input.readLine();
+    }
+    return splitNames;
+  }
+
+  /** Reads lines until a non-blank one is entered, re-prompting on blanks; null on EOF. */
+  private static String readNonBlank(
+      final BufferedReader input, final Logger logger, final String label) throws IOException {
+    String line = input.readLine();
+    while (line != null) {
+      final String trimmed = line.trim();
+      if (!trimmed.isEmpty()) {
+        return trimmed;
+      }
+      emit(logger, label + " must not be blank.");
       line = input.readLine();
     }
     return null;

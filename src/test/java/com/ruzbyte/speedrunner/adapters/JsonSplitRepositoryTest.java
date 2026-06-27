@@ -12,13 +12,15 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /** Unit tests for {@link JsonSplitRepository}. */
 class JsonSplitRepositoryTest {
+
+  private static final String GAME = "Sonic";
+  private static final String CATEGORY = "Any%";
 
   @TempDir private Path tempDir;
 
@@ -34,7 +36,7 @@ class JsonSplitRepositoryTest {
     for (final long seconds : splitSecondsFromStart) {
       splits.add(new Split("S" + index++, Instant.EPOCH.plusSeconds(seconds)));
     }
-    return new Run("Any%", splits, Instant.EPOCH);
+    return new Run(GAME, CATEGORY, splits, Instant.EPOCH);
   }
 
   @Test
@@ -42,25 +44,27 @@ class JsonSplitRepositoryTest {
   void loadsSeededPersonalBest() throws IOException {
     final Path file =
         seed(
-            "{\"personalBests\":{\"Any%\":{\"category\":\"Any%\","
+            "{\"personalBests\":[{\"game\":\"Sonic\",\"category\":\"Any%\","
+                + "\"splitNames\":[\"S1\",\"S2\"],"
                 + "\"goldenSplits\":[\"PT30S\",\"PT45S\"],"
-                + "\"bestTotal\":\"PT1M40S\"}},\"runs\":[]}");
+                + "\"bestTotal\":\"PT1M40S\"}],\"runs\":[]}");
     final JsonSplitRepository repository = new JsonSplitRepository(file);
 
-    final PersonalBest pb = repository.load("Any%");
+    final PersonalBest pb = repository.load(GAME, CATEGORY);
 
     assertEquals(List.of(Duration.ofSeconds(30L), Duration.ofSeconds(45L)), pb.goldenSplits());
+    assertEquals(List.of("S1", "S2"), pb.splitNames());
   }
 
   @Test
-  @DisplayName("loads a missing category as a layout-less personal best")
-  void loadsMissingCategoryAsLayoutless() throws IOException {
-    final Path file = seed("{\"personalBests\":{},\"runs\":[]}");
+  @DisplayName("loads an unknown route as a layout-less personal best")
+  void loadsUnknownRouteAsLayoutless() throws IOException {
+    final Path file = seed("{\"personalBests\":[],\"runs\":[]}");
     final JsonSplitRepository repository = new JsonSplitRepository(file);
 
-    final PersonalBest pb = repository.load("Unknown");
+    final PersonalBest pb = repository.load(GAME, "Unknown");
 
-    assertTrue(pb.goldenSplits().isEmpty());
+    assertTrue(pb.splitNames().isEmpty());
   }
 
   @Test
@@ -69,22 +73,39 @@ class JsonSplitRepositoryTest {
     final JsonSplitRepository repository =
         new JsonSplitRepository(tempDir.resolve("does-not-exist.json"));
 
-    assertTrue(repository.load("Any%").goldenSplits().isEmpty());
+    assertTrue(repository.load(GAME, CATEGORY).splitNames().isEmpty());
   }
 
   @Test
-  @DisplayName("lists the seeded categories")
-  void listsSeededCategories() throws IOException {
+  @DisplayName("lists the configured routes")
+  void listsConfiguredRoutes() throws IOException {
     final Path file =
         seed(
-            "{\"personalBests\":{"
-                + "\"Any%\":{\"category\":\"Any%\","
+            "{\"personalBests\":["
+                + "{\"game\":\"Sonic\",\"category\":\"Any%\",\"splitNames\":[\"S1\"],"
                 + "\"goldenSplits\":[\"PT0S\"],\"bestTotal\":\"PT0S\"},"
-                + "\"120 Star\":{\"category\":\"120 Star\",\"goldenSplits\":[\"PT0S\"],"
-                + "\"bestTotal\":\"PT0S\"}},\"runs\":[]}");
+                + "{\"game\":\"Mario 64\",\"category\":\"120 Star\",\"splitNames\":[\"S1\"],"
+                + "\"goldenSplits\":[\"PT0S\"],\"bestTotal\":\"PT0S\"}],\"runs\":[]}");
     final JsonSplitRepository repository = new JsonSplitRepository(file);
 
-    assertEquals(Set.of("Any%", "120 Star"), repository.categories());
+    final List<PersonalBest> routes = repository.layouts();
+
+    assertEquals(2, routes.size());
+    assertEquals("Any%", routes.get(0).category());
+    assertEquals("120 Star", routes.get(1).category());
+  }
+
+  @Test
+  @DisplayName("persists a configured layout so it survives a reload")
+  void saveLayoutSurvivesReload() {
+    final Path file = tempDir.resolve("new.json");
+    final PersonalBest layout =
+        new PersonalBest(GAME, CATEGORY, List.of("S1", "S2"), List.of(), Duration.ZERO);
+    new JsonSplitRepository(file).saveLayout(layout);
+
+    final PersonalBest reloaded = new JsonSplitRepository(file).load(GAME, CATEGORY);
+
+    assertEquals(List.of("S1", "S2"), reloaded.splitNames());
   }
 
   @Test
@@ -92,11 +113,12 @@ class JsonSplitRepositoryTest {
   void saveImprovesPersonalBestAcrossReload() throws IOException {
     final Path file =
         seed(
-            "{\"personalBests\":{\"Any%\":{\"category\":\"Any%\","
-                + "\"goldenSplits\":[\"PT0S\",\"PT0S\"],\"bestTotal\":\"PT0S\"}},\"runs\":[]}");
+            "{\"personalBests\":[{\"game\":\"Sonic\",\"category\":\"Any%\","
+                + "\"splitNames\":[\"S1\",\"S2\"],"
+                + "\"goldenSplits\":[\"PT0S\",\"PT0S\"],\"bestTotal\":\"PT0S\"}],\"runs\":[]}");
     new JsonSplitRepository(file).save(runWith(25L, 75L));
 
-    final PersonalBest reloaded = new JsonSplitRepository(file).load("Any%");
+    final PersonalBest reloaded = new JsonSplitRepository(file).load(GAME, CATEGORY);
 
     assertEquals(
         List.of(Duration.ofSeconds(25L), Duration.ofSeconds(50L)), reloaded.goldenSplits());
@@ -107,11 +129,12 @@ class JsonSplitRepositoryTest {
   void savePersistsBestTotalAcrossReload() throws IOException {
     final Path file =
         seed(
-            "{\"personalBests\":{\"Any%\":{\"category\":\"Any%\","
-                + "\"goldenSplits\":[\"PT0S\",\"PT0S\"],\"bestTotal\":\"PT0S\"}},\"runs\":[]}");
+            "{\"personalBests\":[{\"game\":\"Sonic\",\"category\":\"Any%\","
+                + "\"splitNames\":[\"S1\",\"S2\"],"
+                + "\"goldenSplits\":[\"PT0S\",\"PT0S\"],\"bestTotal\":\"PT0S\"}],\"runs\":[]}");
     new JsonSplitRepository(file).save(runWith(25L, 75L));
 
-    final PersonalBest reloaded = new JsonSplitRepository(file).load("Any%");
+    final PersonalBest reloaded = new JsonSplitRepository(file).load(GAME, CATEGORY);
 
     assertEquals(Duration.ofSeconds(75L), reloaded.bestTotal());
   }

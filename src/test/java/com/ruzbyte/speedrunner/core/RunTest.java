@@ -14,24 +14,32 @@ import org.junit.jupiter.api.Test;
 class RunTest {
 
   private static final Instant START = Instant.ofEpochMilli(0L);
+  private static final String GAME = "Sonic";
 
   private static List<Split> oneSplit() {
     return new ArrayList<>(List.of(new Split("End", Instant.ofEpochMilli(5_000L))));
   }
 
   @Test
-  @DisplayName("exposes the category it was built with")
-  void exposesCategory() {
-    final Run run = new Run("Any% NMG", oneSplit(), START);
+  @DisplayName("exposes the game and category it was built with")
+  void exposesGameAndCategory() {
+    final Run run = new Run(GAME, "Any% NMG", oneSplit(), START);
 
+    assertEquals(GAME, run.game());
     assertEquals("Any% NMG", run.category());
+  }
+
+  @Test
+  @DisplayName("rejects a blank game")
+  void rejectsBlankGame() {
+    assertThrows(IllegalArgumentException.class, () -> new Run(" ", "Any%", oneSplit(), START));
   }
 
   @Test
   @DisplayName("is unaffected by later mutation of the source split list")
   void copiesSplitsDefensively() {
     final List<Split> source = oneSplit();
-    final Run run = new Run("Any%", source, START);
+    final Run run = new Run(GAME, "Any%", source, START);
 
     source.add(new Split("Injected", Instant.ofEpochMilli(9_000L)));
 
@@ -41,7 +49,7 @@ class RunTest {
   @Test
   @DisplayName("exposes an immutable split list")
   void exposesImmutableSplits() {
-    final Run run = new Run("Any%", oneSplit(), START);
+    final Run run = new Run(GAME, "Any%", oneSplit(), START);
 
     assertThrows(
         UnsupportedOperationException.class,
@@ -51,25 +59,25 @@ class RunTest {
   @Test
   @DisplayName("rejects a blank category")
   void rejectsBlankCategory() {
-    assertThrows(IllegalArgumentException.class, () -> new Run(" ", oneSplit(), START));
+    assertThrows(IllegalArgumentException.class, () -> new Run(GAME, " ", oneSplit(), START));
   }
 
   @Test
   @DisplayName("rejects a null split list")
   void rejectsNullSplits() {
-    assertThrows(NullPointerException.class, () -> new Run("Any%", null, START));
+    assertThrows(NullPointerException.class, () -> new Run(GAME, "Any%", null, START));
   }
 
   @Test
   @DisplayName("rejects a null start instant")
   void rejectsNullStart() {
-    assertThrows(NullPointerException.class, () -> new Run("Any%", oneSplit(), null));
+    assertThrows(NullPointerException.class, () -> new Run(GAME, "Any%", oneSplit(), null));
   }
 
   @Test
   @DisplayName("reports zero total time when there are no splits")
   void totalTimeIsZeroWithoutSplits() {
-    final Run run = new Run("Any%", List.of(), START);
+    final Run run = new Run(GAME, "Any%", List.of(), START);
 
     assertEquals(Duration.ZERO, run.totalTime());
   }
@@ -81,7 +89,7 @@ class RunTest {
         List.of(
             new Split("Mid", Instant.ofEpochMilli(2_000L)),
             new Split("End", Instant.ofEpochMilli(5_000L)));
-    final Run run = new Run("Any%", splits, START);
+    final Run run = new Run(GAME, "Any%", splits, START);
 
     assertEquals(Duration.ofMillis(5_000L), run.totalTime());
   }
@@ -89,7 +97,7 @@ class RunTest {
   @Test
   @DisplayName("reports no segments when there are no splits")
   void segmentsAreEmptyWithoutSplits() {
-    final Run run = new Run("Any%", List.of(), START);
+    final Run run = new Run(GAME, "Any%", List.of(), START);
 
     assertEquals(List.of(), run.segments());
   }
@@ -101,7 +109,7 @@ class RunTest {
         List.of(
             new Split("Mid", Instant.ofEpochMilli(2_000L)),
             new Split("End", Instant.ofEpochMilli(5_000L)));
-    final Run run = new Run("Any%", splits, START);
+    final Run run = new Run(GAME, "Any%", splits, START);
 
     assertEquals(List.of(Duration.ofMillis(2_000L), Duration.ofMillis(3_000L)), run.segments());
   }

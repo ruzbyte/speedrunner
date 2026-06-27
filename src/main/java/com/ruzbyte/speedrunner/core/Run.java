@@ -13,22 +13,26 @@ import java.util.Objects;
  * repository; never mutated afterwards. The in-progress data lives in the {@code SpeedrunTimer}
  * context until that point.
  *
+ * @param game the game the run belongs to; must not be {@code null} or blank
  * @param category the speedrun category; must not be {@code null} or blank
  * @param splits the ordered splits; must not be {@code null}, defensively copied to an immutable
  *     list
  * @param startInstant the absolute instant the run was started; must not be {@code null}
  */
-public record Run(String category, List<Split> splits, Instant startInstant) {
+public record Run(String game, String category, List<Split> splits, Instant startInstant) {
 
   /**
    * Validates the components and stores an immutable copy of the splits.
    *
    * @throws NullPointerException if {@code splits} or {@code startInstant} is {@code null}
-   * @throws IllegalArgumentException if {@code category} is {@code null} or blank
+   * @throws IllegalArgumentException if {@code game} or {@code category} is {@code null} or blank
    */
   public Run {
     Objects.requireNonNull(startInstant, "startInstant must not be null");
     Objects.requireNonNull(splits, "splits must not be null");
+    if (game == null || game.isBlank()) {
+      throw new IllegalArgumentException("game must not be blank");
+    }
     if (category == null || category.isBlank()) {
       throw new IllegalArgumentException("category must not be blank");
     }

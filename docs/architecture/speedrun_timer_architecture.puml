@@ -12,9 +12,10 @@ package ports {
   }
 
   interface SplitRepository {
-    + load(category : String) : PersonalBest
+    + load(game : String, category : String) : PersonalBest
     + save(run : Run) : void
-    + categories() : Set<String>
+    + saveLayout(layout : PersonalBest) : void
+    + layouts() : List<PersonalBest>
   }
 
   interface TimerListener {
@@ -37,6 +38,7 @@ package core {
     - repo : SplitRepository
     - calculator : SplitCalculator
     - listeners : List<TimerListener>
+    - game : String
     - category : String
     - splits : List<Split>
     - startInstant : Instant
@@ -133,12 +135,15 @@ package core {
     + timestamp : Instant
   }
   class Run <<record>> {
+    + game : String
     + category : String
     + splits : List<Split>
     + startInstant : Instant
   }
   class PersonalBest <<record>> {
+    + game : String
     + category : String
+    + splitNames : List<String>
     + goldenSplits : List<Duration>
     + bestTotal : Duration
   }
@@ -153,6 +158,8 @@ package adapters {
     ' Instant.now()
   }
   class CliController {
+    ' waehlt/konfiguriert die Route (Spiel, Kategorie,
+    ' Split-Namen) und persistiert neue per saveLayout,
     ' liest Kommandos, ruft SpeedrunTimer auf,
     ' implementiert TimerListener fuer die Ausgabe
   }

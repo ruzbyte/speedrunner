@@ -333,3 +333,6 @@ buildNumber.properties
 !gradle/wrapper/gradle-wrapper.jar
 
 # Annotation processors
+
+# Project runtime data files
+speedruns.json

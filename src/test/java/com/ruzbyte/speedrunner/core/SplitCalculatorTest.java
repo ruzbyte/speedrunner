@@ -13,9 +13,10 @@ import org.junit.jupiter.api.Test;
 class SplitCalculatorTest {
 
   private static final Run RUN =
-      new Run("Any%", List.of(new Split("End", Instant.EPOCH.plusSeconds(1L))), Instant.EPOCH);
+      new Run(
+          "Sonic", "Any%", List.of(new Split("End", Instant.EPOCH.plusSeconds(1L))), Instant.EPOCH);
   private static final PersonalBest PB =
-      new PersonalBest("Any%", List.of(), Duration.ofSeconds(1L));
+      new PersonalBest("Sonic", "Any%", List.of(), List.of(), Duration.ofSeconds(1L));
 
   @Test
   @DisplayName("delegates the comparison to the active strategy")

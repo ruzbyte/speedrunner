@@ -16,11 +16,11 @@ class VsPersonalBestTest {
 
   private static Run runOfSeconds(final long totalSeconds) {
     final Split end = new Split("End", START.plusSeconds(totalSeconds));
-    return new Run("Any%", List.of(end), START);
+    return new Run("Sonic", "Any%", List.of(end), START);
   }
 
   private static PersonalBest pbOfMinutes(final long bestMinutes) {
-    return new PersonalBest("Any%", List.of(), Duration.ofMinutes(bestMinutes));
+    return new PersonalBest("Sonic", "Any%", List.of(), List.of(), Duration.ofMinutes(bestMinutes));
   }
 
   @Test

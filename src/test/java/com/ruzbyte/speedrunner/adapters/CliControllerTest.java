@@ -19,9 +19,7 @@ import java.io.StringReader;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class CliControllerTest {
 
+  private static final String GAME = "Sonic";
   private static final String CATEGORY = "Any%";
   private static final Clock FIXED_CLOCK = () -> Instant.EPOCH;
 
@@ -40,19 +39,24 @@ class CliControllerTest {
   @Mock private Logger logger;
 
   private static PersonalBest layout(final int segments) {
+    final List<String> names = new ArrayList<>();
     final List<Duration> golden = new ArrayList<>();
     for (int i = 0; i < segments; i++) {
+      names.add("S" + (i + 1));
       golden.add(Duration.ofSeconds(10L));
     }
-    return new PersonalBest(CATEGORY, golden, Duration.ofSeconds(100L));
+    return new PersonalBest(GAME, CATEGORY, names, golden, Duration.ofSeconds(100L));
+  }
+
+  private static BufferedReader reader(final String text) {
+    return new BufferedReader(new StringReader(text));
   }
 
   private CliController controllerFor(final String commands) {
     final SpeedrunTimer timer =
         new SpeedrunTimer(
-            CATEGORY, FIXED_CLOCK, repository, new SplitCalculator(new VsPersonalBest()));
-    final CliController cli =
-        new CliController(timer, new BufferedReader(new StringReader(commands)), logger);
+            GAME, CATEGORY, FIXED_CLOCK, repository, new SplitCalculator(new VsPersonalBest()));
+    final CliController cli = new CliController(timer, reader(commands), logger);
     timer.addListener(cli);
     return cli;
   }
@@ -60,11 +64,11 @@ class CliControllerTest {
   @Test
   @DisplayName("dispatches start and reports the run started")
   void dispatchesStart() throws IOException {
-    when(repository.load(CATEGORY)).thenReturn(layout(2));
+    when(repository.load(GAME, CATEGORY)).thenReturn(layout(2));
 
     controllerFor("start\nquit\n").run();
 
-    verify(repository).load(CATEGORY);
+    verify(repository).load(GAME, CATEGORY);
     verify(logger).info("Run started.");
   }
 
@@ -95,7 +99,7 @@ class CliControllerTest {
   @Test
   @DisplayName("a finishing split saves the run")
   void finishingSplitSavesRun() throws IOException {
-    when(repository.load(CATEGORY)).thenReturn(layout(1));
+    when(repository.load(GAME, CATEGORY)).thenReturn(layout(1));
 
     controllerFor("start\nsplit\nquit\n").run();
 
@@ -106,7 +110,7 @@ class CliControllerTest {
   @Test
   @DisplayName("status reports elapsed and split count")
   void statusReportsElapsedAndSplits() throws IOException {
-    when(repository.load(CATEGORY)).thenReturn(layout(2));
+    when(repository.load(GAME, CATEGORY)).thenReturn(layout(2));
 
     controllerFor("start\nstatus\nquit\n").run();
 
@@ -125,7 +129,7 @@ class CliControllerTest {
   @Test
   @DisplayName("renders pause, resume and reset events")
   void rendersPauseResumeReset() throws IOException {
-    when(repository.load(CATEGORY)).thenReturn(layout(3));
+    when(repository.load(GAME, CATEGORY)).thenReturn(layout(3));
 
     controllerFor("start\npause\nresume\nreset\nquit\n").run();
 
@@ -134,37 +138,63 @@ class CliControllerTest {
   }
 
   @Test
-  @DisplayName("chooseCategory returns the selected category")
-  void chooseCategoryReturnsSelection() throws IOException {
-    when(repository.categories()).thenReturn(new LinkedHashSet<>(List.of("Any%", "120 Star")));
+  @DisplayName("chooseRoute returns the selected existing route")
+  void chooseRouteReturnsSelection() throws IOException {
+    final PersonalBest any = layout(2);
+    final PersonalBest hundred =
+        new PersonalBest("Mario 64", "120 Star", List.of("S1"), List.of(), Duration.ZERO);
+    when(repository.layouts()).thenReturn(List.of(any, hundred));
 
-    final String chosen =
-        CliController.chooseCategory(
-            repository, new BufferedReader(new StringReader("1\n")), logger);
+    final PersonalBest chosen = CliController.chooseRoute(repository, reader("1\n"), logger);
 
-    assertEquals("Any%", chosen);
+    assertEquals(any, chosen);
   }
 
   @Test
-  @DisplayName("chooseCategory re-prompts on invalid input")
-  void chooseCategoryRetriesOnInvalid() throws IOException {
-    when(repository.categories()).thenReturn(new LinkedHashSet<>(List.of("Any%")));
+  @DisplayName("chooseRoute re-prompts on an out-of-range choice")
+  void chooseRouteRetriesOnInvalid() throws IOException {
+    when(repository.layouts()).thenReturn(List.of(layout(1)));
 
-    final String chosen =
-        CliController.chooseCategory(
-            repository, new BufferedReader(new StringReader("nope\n1\n")), logger);
+    final PersonalBest chosen = CliController.chooseRoute(repository, reader("nope\n1\n"), logger);
 
-    assertEquals("Any%", chosen);
-    verify(logger).info("Enter a number between 1 and 1.");
+    assertEquals(layout(1), chosen);
+    verify(logger).info("Enter a number between 1 and 2.");
   }
 
   @Test
-  @DisplayName("chooseCategory returns null when nothing is seeded")
-  void chooseCategoryReturnsNullWhenEmpty() throws IOException {
-    when(repository.categories()).thenReturn(Set.of());
+  @DisplayName("chooseRoute configures a new route when none exist and persists it")
+  void chooseRouteConfiguresNewWhenEmpty() throws IOException {
+    when(repository.layouts()).thenReturn(List.of());
 
-    final String chosen =
-        CliController.chooseCategory(repository, new BufferedReader(new StringReader("")), logger);
+    final PersonalBest chosen =
+        CliController.chooseRoute(
+            repository, reader("Sonic\nAny%\nGreen Hill\nMarble Zone\n\n"), logger);
+
+    assertEquals("Sonic", chosen.game());
+    assertEquals("Any%", chosen.category());
+    assertEquals(List.of("Green Hill", "Marble Zone"), chosen.splitNames());
+    verify(repository).saveLayout(chosen);
+  }
+
+  @Test
+  @DisplayName("chooseRoute configures a new route via the create option")
+  void chooseRouteConfiguresNewViaCreateOption() throws IOException {
+    when(repository.layouts()).thenReturn(List.of(layout(1)));
+
+    final PersonalBest chosen =
+        CliController.chooseRoute(repository, reader("2\nMario 64\n70 Star\nBob-omb\n\n"), logger);
+
+    assertEquals("Mario 64", chosen.game());
+    assertEquals(List.of("Bob-omb"), chosen.splitNames());
+    verify(repository).saveLayout(chosen);
+  }
+
+  @Test
+  @DisplayName("chooseRoute returns null when input ends before a route is configured")
+  void chooseRouteReturnsNullOnEof() throws IOException {
+    when(repository.layouts()).thenReturn(List.of());
+
+    final PersonalBest chosen = CliController.chooseRoute(repository, reader(""), logger);
 
     assertNull(chosen);
   }
