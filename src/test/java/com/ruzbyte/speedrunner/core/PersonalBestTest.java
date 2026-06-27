@@ -13,6 +13,9 @@ import org.junit.jupiter.api.Test;
 /** Unit tests for {@link PersonalBest}. */
 class PersonalBestTest {
 
+  private static final String GAME = "Sonic";
+  private static final String CATEGORY = "Any%";
+  private static final List<String> NAMES = List.of("S1", "S2");
   private static final Duration BEST_TOTAL = Duration.ofMinutes(12);
 
   private static List<Duration> goldenSplits() {
@@ -20,10 +23,13 @@ class PersonalBestTest {
   }
 
   @Test
-  @DisplayName("exposes the best total it was built with")
-  void exposesBestTotal() {
-    final PersonalBest pb = new PersonalBest("Any%", goldenSplits(), BEST_TOTAL);
+  @DisplayName("exposes the route and best total it was built with")
+  void exposesComponents() {
+    final PersonalBest pb = new PersonalBest(GAME, CATEGORY, NAMES, goldenSplits(), BEST_TOTAL);
 
+    assertEquals(GAME, pb.game());
+    assertEquals(CATEGORY, pb.category());
+    assertEquals(NAMES, pb.splitNames());
     assertEquals(BEST_TOTAL, pb.bestTotal());
   }
 
@@ -31,7 +37,7 @@ class PersonalBestTest {
   @DisplayName("is unaffected by later mutation of the source golden-split list")
   void copiesGoldenSplitsDefensively() {
     final List<Duration> source = goldenSplits();
-    final PersonalBest pb = new PersonalBest("Any%", source, BEST_TOTAL);
+    final PersonalBest pb = new PersonalBest(GAME, CATEGORY, NAMES, source, BEST_TOTAL);
 
     source.add(Duration.ofSeconds(99));
 
@@ -39,31 +45,63 @@ class PersonalBestTest {
   }
 
   @Test
+  @DisplayName("is unaffected by later mutation of the source split-name list")
+  void copiesSplitNamesDefensively() {
+    final List<String> source = new ArrayList<>(List.of("S1", "S2"));
+    final PersonalBest pb = new PersonalBest(GAME, CATEGORY, source, goldenSplits(), BEST_TOTAL);
+
+    source.add("S3");
+
+    assertEquals(2, pb.splitNames().size());
+  }
+
+  @Test
   @DisplayName("exposes an immutable golden-split list")
   void exposesImmutableGoldenSplits() {
-    final PersonalBest pb = new PersonalBest("Any%", goldenSplits(), BEST_TOTAL);
+    final PersonalBest pb = new PersonalBest(GAME, CATEGORY, NAMES, goldenSplits(), BEST_TOTAL);
 
     assertThrows(
         UnsupportedOperationException.class, () -> pb.goldenSplits().add(Duration.ofSeconds(1)));
   }
 
   @Test
+  @DisplayName("rejects a blank game")
+  void rejectsBlankGame() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new PersonalBest(" ", CATEGORY, NAMES, goldenSplits(), BEST_TOTAL));
+  }
+
+  @Test
   @DisplayName("rejects a blank category")
   void rejectsBlankCategory() {
     assertThrows(
-        IllegalArgumentException.class, () -> new PersonalBest("", goldenSplits(), BEST_TOTAL));
+        IllegalArgumentException.class,
+        () -> new PersonalBest(GAME, "", NAMES, goldenSplits(), BEST_TOTAL));
+  }
+
+  @Test
+  @DisplayName("rejects null split names")
+  void rejectsNullSplitNames() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new PersonalBest(GAME, CATEGORY, null, goldenSplits(), BEST_TOTAL));
   }
 
   @Test
   @DisplayName("rejects null golden splits")
   void rejectsNullGoldenSplits() {
-    assertThrows(NullPointerException.class, () -> new PersonalBest("Any%", null, BEST_TOTAL));
+    assertThrows(
+        NullPointerException.class,
+        () -> new PersonalBest(GAME, CATEGORY, NAMES, null, BEST_TOTAL));
   }
 
   @Test
   @DisplayName("rejects a null best total")
   void rejectsNullBestTotal() {
-    assertThrows(NullPointerException.class, () -> new PersonalBest("Any%", goldenSplits(), null));
+    assertThrows(
+        NullPointerException.class,
+        () -> new PersonalBest(GAME, CATEGORY, NAMES, goldenSplits(), null));
   }
 
   /** Builds a run whose splits sit at the given cumulative second-offsets from the epoch start. */
@@ -73,7 +111,7 @@ class PersonalBestTest {
     for (final long seconds : splitSecondsFromStart) {
       splits.add(new Split("S" + index++, Instant.EPOCH.plusSeconds(seconds)));
     }
-    return new Run("Any%", splits, Instant.EPOCH);
+    return new Run(GAME, CATEGORY, splits, Instant.EPOCH);
   }
 
   @Test
@@ -81,8 +119,11 @@ class PersonalBestTest {
   void improvedWithKeepsFasterGoldenSplits() {
     final PersonalBest pb =
         new PersonalBest(
-            "Any%",
-            List.of(Duration.ofSeconds(30L), Duration.ofSeconds(45L)), Duration.ofSeconds(100L));
+            GAME,
+            CATEGORY,
+            NAMES,
+            List.of(Duration.ofSeconds(30L), Duration.ofSeconds(45L)),
+            Duration.ofSeconds(100L));
 
     final PersonalBest improved = pb.improvedWith(runWith(25L, 75L));
 
@@ -91,12 +132,33 @@ class PersonalBestTest {
   }
 
   @Test
+  @DisplayName("carries the route definition over when merging a run")
+  void improvedWithKeepsRoute() {
+    final PersonalBest pb =
+        new PersonalBest(
+            GAME,
+            CATEGORY,
+            NAMES,
+            List.of(Duration.ofSeconds(30L), Duration.ofSeconds(45L)),
+            Duration.ofSeconds(100L));
+
+    final PersonalBest improved = pb.improvedWith(runWith(25L, 75L));
+
+    assertEquals(GAME, improved.game());
+    assertEquals(CATEGORY, improved.category());
+    assertEquals(NAMES, improved.splitNames());
+  }
+
+  @Test
   @DisplayName("keeps the faster total when merging a run")
   void improvedWithKeepsFasterTotal() {
     final PersonalBest pb =
         new PersonalBest(
-            "Any%",
-            List.of(Duration.ofSeconds(30L), Duration.ofSeconds(45L)), Duration.ofSeconds(100L));
+            GAME,
+            CATEGORY,
+            NAMES,
+            List.of(Duration.ofSeconds(30L), Duration.ofSeconds(45L)),
+            Duration.ofSeconds(100L));
 
     final PersonalBest improved = pb.improvedWith(runWith(25L, 75L));
 
@@ -107,7 +169,8 @@ class PersonalBestTest {
   @DisplayName("treats a zero golden split as unset and adopts the run's segment")
   void improvedWithTreatsZeroAsUnset() {
     final PersonalBest pb =
-        new PersonalBest("Any%", List.of(Duration.ZERO, Duration.ZERO), Duration.ZERO);
+        new PersonalBest(
+            GAME, CATEGORY, NAMES, List.of(Duration.ZERO, Duration.ZERO), Duration.ZERO);
 
     final PersonalBest improved = pb.improvedWith(runWith(25L, 75L));
 
@@ -118,8 +181,7 @@ class PersonalBestTest {
   @Test
   @DisplayName("adopts the run's segments when no golden layout was recorded yet")
   void improvedWithAdoptsRunOnSizeMismatch() {
-    final PersonalBest pb =
-        new PersonalBest("Any%", List.of(Duration.ofSeconds(30L)), Duration.ofSeconds(100L));
+    final PersonalBest pb = new PersonalBest(GAME, CATEGORY, NAMES, List.of(), Duration.ZERO);
 
     final PersonalBest improved = pb.improvedWith(runWith(25L, 75L));
 

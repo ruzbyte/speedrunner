@@ -22,7 +22,7 @@ class VsAverageTest {
       final long at = (i < segments) ? i : totalSeconds;
       splits.add(new Split("S" + i, START.plusSeconds(at)));
     }
-    return new Run("Any%", splits, START);
+    return new Run("Sonic", "Any%", splits, START);
   }
 
   @Test
@@ -31,8 +31,11 @@ class VsAverageTest {
     // Golden mean = (30 + 45) / 2 = 37.5s; over 2 segments the reference total is 75s.
     final PersonalBest pb =
         new PersonalBest(
+            "Sonic",
             "Any%",
-            List.of(Duration.ofSeconds(30L), Duration.ofSeconds(45L)), Duration.ofMinutes(9L));
+            List.of(),
+            List.of(Duration.ofSeconds(30L), Duration.ofSeconds(45L)),
+            Duration.ofMinutes(9L));
 
     final Duration delta = strategy.compare(runWithSegments(2, 80L), pb);
 
@@ -42,7 +45,8 @@ class VsAverageTest {
   @Test
   @DisplayName("returns the run total when there is no golden data to average")
   void noGoldenReturnsRunTotal() {
-    final PersonalBest pb = new PersonalBest("Any%", List.of(), Duration.ofMinutes(9L));
+    final PersonalBest pb =
+        new PersonalBest("Sonic", "Any%", List.of(), List.of(), Duration.ofMinutes(9L));
 
     final Duration delta = strategy.compare(runWithSegments(2, 80L), pb);
 
@@ -53,8 +57,9 @@ class VsAverageTest {
   @DisplayName("returns zero when the run has no segments")
   void noSegmentsReturnsZero() {
     final PersonalBest pb =
-        new PersonalBest("Any%", List.of(Duration.ofSeconds(30L)), Duration.ofMinutes(9L));
-    final Run empty = new Run("Any%", List.of(), START);
+        new PersonalBest(
+            "Sonic", "Any%", List.of(), List.of(Duration.ofSeconds(30L)), Duration.ofMinutes(9L));
+    final Run empty = new Run("Sonic", "Any%", List.of(), START);
 
     final Duration delta = strategy.compare(empty, pb);
 

@@ -15,17 +15,16 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
- * JSON-backed {@link SplitRepository} (Gson). Persists per-category personal bests and a history of
- * completed runs in a single file. Categories must be seeded in the file before they can be run (a
- * missing category loads as a layout-less personal best, which the timer rejects on start).
+ * JSON-backed {@link SplitRepository} (Gson). Persists the configured routes (per-game,
+ * per-category personal bests with their split layout) and a history of completed runs in a single
+ * file.
  *
- * <p>{@link #save(Run)} appends the run and improves the category's personal best via {@link
+ * <p>Routes are keyed by the {@code (game, category)} pair. {@link #saveLayout(PersonalBest)}
+ * upserts a route so a freshly configured one is selectable on the next launch; {@link #save(Run)}
+ * appends the run and improves its route's personal best via {@link
  * PersonalBest#improvedWith(Run)}.
  */
 public final class JsonSplitRepository implements SplitRepository {
@@ -49,25 +48,67 @@ public final class JsonSplitRepository implements SplitRepository {
   }
 
   @Override
-  public PersonalBest load(final String category) {
-    final PersonalBest stored = readStore().personalBests.get(category);
-    return stored != null ? stored : new PersonalBest(category, List.of(), Duration.ZERO);
+  public PersonalBest load(final String game, final String category) {
+    final PersonalBest stored = find(readStore().personalBests, game, category);
+    return stored != null
+        ? stored
+        : new PersonalBest(game, category, List.of(), List.of(), Duration.ZERO);
   }
 
   @Override
   public void save(final Run run) {
     final Store store = readStore();
     store.runs.add(run);
-    final PersonalBest current = store.personalBests.get(run.category());
+    final PersonalBest current = find(store.personalBests, run.game(), run.category());
     final PersonalBest base =
-        current != null ? current : new PersonalBest(run.category(), List.of(), Duration.ZERO);
-    store.personalBests.put(run.category(), base.improvedWith(run));
+        current != null
+            ? current
+            : new PersonalBest(
+                run.game(), run.category(), splitNamesOf(run), List.of(), Duration.ZERO);
+    upsert(store.personalBests, base.improvedWith(run));
     writeStore(store);
   }
 
   @Override
-  public Set<String> categories() {
-    return Set.copyOf(readStore().personalBests.keySet());
+  public void saveLayout(final PersonalBest layout) {
+    final Store store = readStore();
+    upsert(store.personalBests, layout);
+    writeStore(store);
+  }
+
+  @Override
+  public List<PersonalBest> layouts() {
+    return List.copyOf(readStore().personalBests);
+  }
+
+  /** Returns the stored route matching the game and category, or {@code null} if none. */
+  private static PersonalBest find(
+      final List<PersonalBest> routes, final String game, final String category) {
+    for (final PersonalBest route : routes) {
+      if (route.game().equals(game) && route.category().equals(category)) {
+        return route;
+      }
+    }
+    return null;
+  }
+
+  /** Replaces the route with the same game and category, or appends it when new. */
+  private static void upsert(final List<PersonalBest> routes, final PersonalBest route) {
+    for (int i = 0; i < routes.size(); i++) {
+      final PersonalBest existing = routes.get(i);
+      if (existing.game().equals(route.game()) && existing.category().equals(route.category())) {
+        routes.set(i, route);
+        return;
+      }
+    }
+    routes.add(route);
+  }
+
+  /** Derives the ordered split names from a run, for seeding a brand-new route's layout. */
+  private static List<String> splitNamesOf(final Run run) {
+    final List<String> names = new ArrayList<>(run.splits().size());
+    run.splits().forEach(split -> names.add(split.name()));
+    return names;
   }
 
   private Store readStore() {
@@ -92,7 +133,7 @@ public final class JsonSplitRepository implements SplitRepository {
 
   /** Root document persisted to JSON. Fields are populated reflectively by Gson. */
   private static final class Store {
-    private Map<String, PersonalBest> personalBests = new LinkedHashMap<>();
+    private List<PersonalBest> personalBests = new ArrayList<>();
     private List<Run> runs = new ArrayList<>();
   }
 

@@ -3,6 +3,7 @@ package com.ruzbyte.speedrunner;
 import com.ruzbyte.speedrunner.adapters.CliController;
 import com.ruzbyte.speedrunner.adapters.JsonSplitRepository;
 import com.ruzbyte.speedrunner.adapters.SystemClock;
+import com.ruzbyte.speedrunner.core.PersonalBest;
 import com.ruzbyte.speedrunner.core.SpeedrunTimer;
 import com.ruzbyte.speedrunner.core.SplitCalculator;
 import com.ruzbyte.speedrunner.core.VsPersonalBest;
@@ -42,12 +43,13 @@ public final class Main {
 
     try (BufferedReader input =
         new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
-      final String category = CliController.chooseCategory(repository, input, logger);
-      if (category == null) {
-        logger.info("No categories seeded in {} — add one before running.", dataFile);
+      final PersonalBest route = CliController.chooseRoute(repository, input, logger);
+      if (route == null) {
+        logger.info("No run configured — nothing to do.");
         return;
       }
-      final SpeedrunTimer timer = new SpeedrunTimer(category, clock, repository, calculator);
+      final SpeedrunTimer timer =
+          new SpeedrunTimer(route.game(), route.category(), clock, repository, calculator);
       final CliController cli = new CliController(timer, input, logger);
       timer.addListener(cli);
       cli.run();

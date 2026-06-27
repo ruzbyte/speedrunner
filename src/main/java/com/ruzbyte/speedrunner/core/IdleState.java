@@ -17,7 +17,7 @@ public final class IdleState extends TimerState {
   @Override
   public void start(final Instant now) {
     final PersonalBest reference = timer.loadReference();
-    if (reference.goldenSplits().isEmpty()) {
+    if (reference.splitNames().isEmpty()) {
       throw new IllegalStateException(
           "no split layout configured for category: " + timer.category());
     }

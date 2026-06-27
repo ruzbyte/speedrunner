@@ -27,16 +27,17 @@ core through the same observer interface.
 Requires JDK 21 and Maven.
 
 ```bash
-mvn clean install                         # build + run all quality gates
-mvn clean package                         # produce the self-contained executable JAR
-cp samples/speedruns.json speedruns.json  # seed a data file you can write to
-java -jar target/speedrunner.jar          # uses ./speedruns.json (pass a path to override)
+mvn clean install                 # build + run all quality gates
+mvn clean package                 # produce the self-contained executable JAR
+java -jar target/speedrunner.jar  # uses ./speedruns.json (pass a path to override)
 ```
 
-Categories (and their segment layout) are seeded in the JSON data file; on
-launch you pick one from the list. A run **auto-finishes** once it reaches the
-seeded number of segments, and finishing **improves that category's personal
-best** in the file. A sample data file lives in [`samples/`](samples/).
+No data file is needed to start. On launch you either pick an existing run from
+the list or **configure a new one** — entering the game, the category and the
+split names — which is then saved to the data file. A run **auto-finishes** once
+it reaches the configured number of splits, and finishing **improves that
+route's personal best** in the file. A sample data file lives in
+[`samples/`](samples/) if you want to start from one.
 
 ## Commands (CLI)
 
@@ -59,8 +60,9 @@ Layered, with dependencies pointing inward only. Four design patterns, each
 motivated by the domain:
 
 - **State** — `TimerState` (abstract) plus `IdleState`, `RunningState`,
-  `PausedState`, `FinishedState`. States are stateless and shareable; the
-  context (`SpeedrunTimer`) holds the data and passes the timestamp through.
+  `PausedState`, `FinishedState`. Each state holds only a back-reference to its
+  orchestrator and is created fresh on every transition (no singletons); the
+  context (`SpeedrunTimer`) holds the run data and passes the timestamp through.
   `entry()`/`exit()` encapsulate transition side effects.
 - **Strategy** — `CompareStrategy` for the comparison modes (PB / Sum of Best /
   Average), selectable per speedrun category and applied by `SplitCalculator`.
